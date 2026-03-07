@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>One Game — The Human Tradition Facilitator</title>
+  <meta name="description" content="A coaching and facilitation tool based on the Human Tradition framework from One Game by Jase Berger." />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Georgia', 'Times New Roman', serif; background: #FEFCF8; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+const COLORS = {
+  bg: "#FEFCF8",
+  gold: "#B8860B",
+  goldLight: "#D4A843",
+  goldDark: "#8B6914",
+  goldBg: "rgba(184, 134, 11, 0.08)",
+  sand: "#E8DCC8",
+  sandLight: "#F3EDE2",
+  cream: "#FBF7F0",
+  text: "#3D3426",
+  textLight: "#7A6E5D",
+  white: "#FFFFFF",
+  warmGlow: "rgba(184, 134, 11, 0.04)",
+};
+
+const styles = {
+  container: {
+    minHeight: "100vh",
+    background: "linear-gradient(180deg, " + COLORS.bg + " 0%, " + COLORS.cream + " 50%, " + COLORS.bg + " 100%)",
+    fontFamily: "'Georgia', 'Times New Roman', serif",
+    color: COLORS.text,
+    display: "flex",
+    justifyContent: "center",
+    padding: "0",
+  },
+  inner: {
+    width: "100%",
+    maxWidth: 540,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "100vh",
+  },
+  header: {
+    textAlign: "center",
+    padding: "28px 20px 20px",
+    borderBottom: "1px solid " + COLORS.sand,
+    background: COLORS.bg,
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontSize: 15,
+    letterSpacing: "0.18em",
+    color: COLORS.gold,
+    fontWeight: 400,
+    margin: 0,
+    textTransform: "uppercase",
+  },
+  headerSub: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    marginTop: 4,
+    fontStyle: "italic",
+    letterSpacing: "0.04em",
+  },
+  legend: {
+    fontSize: 11,
+    color: COLORS.textLight,
+    marginTop: 8,
+    letterSpacing: "0.02em",
+  },
+  body: {
+    flex: 1,
+    padding: "32px 24px",
+    overflowY: "auto",
+  },
+  card: {
+    background: COLORS.white,
+    border: "1px solid " + COLORS.sand,
+    borderRadius: 14,
+    padding: "32px 28px",
+    boxShadow: "0 2px 12px rgba(184,134,11,0.06)",
+  },
+  text: {
+    fontSize: 15.5,
+    lineHeight: 1.72,
+    color: COLORS.text,
+    margin: 0,
+    whiteSpace: "pre-line",
+  },
+  btn: {
+    display: "block",
+    width: "100%",
+    padding: "14px 20px",
+    marginTop: 10,
+    background: COLORS.white,
+    border: "1px solid " + COLORS.sand,
+    borderRadius: 10,
+    fontFamily: "'Georgia', serif",
+    fontSize: 15,
+    color: COLORS.text,
+    textAlign: "left",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+  },
+  btnHover: {
+    background: COLORS.goldBg,
+    borderColor: COLORS.goldLight,
+  },
+  btnSpecial: {
+    background: COLORS.gold,
+    color: COLORS.white,
+    border: "1px solid " + COLORS.gold,
+    fontWeight: 700,
+  },
+  btnSpecialHover: {
+    background: COLORS.goldLight,
+    borderColor: COLORS.goldLight,
+  },
+  input: {
+    display: "block",
+    width: "100%",
+    padding: "12px 16px",
+    marginTop: 10,
+    background: COLORS.white,
+    border: "1px solid " + COLORS.sand,
+    borderRadius: 10,
+    fontFamily: "'Georgia', serif",
+    fontSize: 15,
+    color: COLORS.text,
+    outline: "none",
+    boxSizing: "border-box",
+    transition: "border-color 0.2s",
+  },
+  label: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    marginTop: 14,
+    marginBottom: 2,
+    display: "block",
+    fontStyle: "italic",
+  },
+  chatArea: {
+    flex: 1,
+    overflowY: "auto",
+    padding: "20px 16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+  },
+  userBubble: {
+    alignSelf: "flex-end",
+    background: "linear-gradient(135deg, " + COLORS.gold + ", " + COLORS.goldLight + ")",
+    color: COLORS.white,
+    padding: "12px 18px",
+    borderRadius: "16px 16px 4px 16px",
+    maxWidth: "82%",
+    fontSize: 15,
+    lineHeight: 1.6,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  aiBubble: {
+    alignSelf: "flex-start",
+    background: COLORS.cream,
+    border: "1px solid " + COLORS.sand,
+    color: COLORS.text,
+    padding: "14px 18px",
+    borderRadius: "16px 16px 16px 4px",
+    maxWidth: "88%",
+    fontSize: 15,
+    lineHeight: 1.7,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  listening: {
+    alignSelf: "flex-start",
+    color: COLORS.textLight,
+    fontStyle: "italic",
+    fontSize: 14,
+    padding: "8px 18px",
+  },
+  inputBar: {
+    padding: "12px 16px 20px",
+    borderTop: "1px solid " + COLORS.sand,
+    background: COLORS.bg,
+    display: "flex",
+    gap: 10,
+    alignItems: "flex-end",
+  },
+  chatInput: {
+    flex: 1,
+    padding: "12px 16px",
+    border: "1px solid " + COLORS.sand,
+    borderRadius: 12,
+    fontFamily: "'Georgia', serif",
+    fontSize: 15,
+    color: COLORS.text,
+    outline: "none",
+    resize: "none",
+    minHeight: 44,
+    maxHeight: 120,
+    lineHeight: 1.5,
+    background: COLORS.white,
+    boxSizing: "border-box",
+  },
+  sendBtn: {
+    padding: "12px 20px",
+    background: COLORS.gold,
+    color: COLORS.white,
+    border: "none",
+    borderRadius: 12,
+    fontFamily: "'Georgia', serif",
+    fontSize: 15,
+    cursor: "pointer",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    transition: "background 0.2s",
+  },
+  endSessionPanel: {
+    background: COLORS.cream,
+    border: "1px solid " + COLORS.sand,
+    borderRadius: 14,
+    padding: "24px 22px",
+    margin: "14px 16px",
+    boxShadow: "0 2px 12px rgba(184,134,11,0.08)",
+  },
+  privacyNote: {
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: COLORS.textLight,
+    fontStyle: "italic",
+    padding: "12px 16px",
+    background: COLORS.warmGlow,
+    borderRadius: 8,
+    border: "1px solid " + COLORS.sand,
+    marginBottom: 16,
+  },
+  agreementDoc: {
+    background: COLORS.white,
+    border: "1px solid " + COLORS.sand,
+    borderRadius: 10,
+    padding: "16px 18px",
+    fontSize: 14.5,
+    lineHeight: 1.7,
+    color: COLORS.text,
+    whiteSpace: "pre-wrap",
+    marginTop: 12,
+    maxHeight: 300,
+    overflowY: "auto",
+  },
+  copyBtn: {
+    display: "inline-block",
+    padding: "8px 16px",
+    marginTop: 10,
+    marginRight: 10,
+    background: COLORS.gold,
+    color: COLORS.white,
+    border: "none",
+    borderRadius: 8,
+    fontFamily: "'Georgia', serif",
+    fontSize: 13,
+    cursor: "pointer",
+    fontWeight: 600,
+    transition: "background 0.2s",
+  },
+  jaseNote: {
+    alignSelf: "center",
+    background: "linear-gradient(135deg, " + COLORS.warmGlow + ", " + COLORS.cream + ")",
+    border: "1px solid " + COLORS.goldLight,
+    color: COLORS.text,
+    padding: "20px 22px",
+    borderRadius: 14,
+    maxWidth: "92%",
+    fontSize: 14.5,
+    lineHeight: 1.7,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    boxShadow: "0 2px 12px rgba(184,134,11,0.1)",
+  },
+  jaseNoteHeader: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: COLORS.gold,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    marginBottom: 10,
+  },
+};
+
+function HoverButton({ style, hoverStyle, children, ...props }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      style={{ ...style, ...(hovered ? hoverStyle : {}) }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+const SYSTEM_PROMPT = `You are the Human Tradition Facilitator — built on the framework from "One Game" by Jase Berger. You channel Jase's voice: warm, direct, grounded, sometimes playful, never clinical. You talk like a mate who happens to have deep insight into how humans connect, not like a therapist or corporate coach.
+
+VOICE RULES — THIS IS CRITICAL:
+- Sound like Jase, not a facilitator. You're a guy from New Zealand on a farm who has spent years mapping how humans actually connect. You're not above anyone. You're in it with them.
+- Never say "hold space" or "do the work" or "safe space" or "I hear you" or "that's valid." These are generic facilitator phrases. Jase doesn't talk like that.
+- Instead, be direct and real: "I got that," "Tell me more about that," "What's actually going on there?," "That's interesting — say more," "Let's dig into that," "Notice anything there?," "What would it look like if you tried something different?" Use "I got that" when you understand someone's viewpoint — it's your way of showing you've taken it in, instead of generic "I hear you."
+- Use phrases natural to Jase's voice: "have a play with this," "notice the patterns," "let's keep stacking," "that's a feature, not a bug," "this is how we humans do it," "you've been using this your whole life — we're just shining a light on it now."
+- Be warm but not soft. Challenge people. Be honest. If something sounds like avoidance or force, name it plainly.
+- Keep it conversational. Short sentences. One question at a time. Don't monologue.
+- Celebrate the process, not just outcomes. Point out micro-agreements — the small wins people don't notice.
+- You can be funny. You can be blunt. You care deeply but you don't wrap everything in cotton wool.
+- Never use the word "boundaries" (overused). Say what you mean directly instead.
+- Avoid "journey" — say "where you're heading" or "what you're figuring out."
+- Avoid "navigate" — say "work through" or "find your way through."
+- Drop "powerful" sparingly — it's meaningful in the book but loses impact if overused.
+
+CORE FRAMEWORK — THE HUMAN TRADITION TRIANGLE (10 parts):
+
+THE FOUR STEPS:
+1. VOICE (Step One) — Quality communication starts with quality listening. Let the subject be fully expressed. Listen before speaking. Comprehend what someone is expressing. The most likely cause of violence is when Step One isn't respected. People must be heard and understood before a good outcome is possible.
+2. COMPARISON (Step Two) — A stage for multiple voices. Different perspectives sit side by side. Expect radically different ideas — that's a feature, not a bug. Agreement doesn't have to be found in this step alone. Let's keep stacking.
+3. GAME (Step Three) — When the first two steps don't lead to agreement, introduce game — a structured method where ability and strategy come into play. Making deals, combining agreements, building compromises. Democracy is a nationwide use of gamification. Kids do this naturally.
+4. FATE (Step Four) — The ultimate game. A game of luck — rolling a die, flipping a coin. The stakes are higher, the need for a definitive outcome more pressing. Having a definitive outcome matters more than the specific result. This is bold, and it's honest.
+
+THE THREE RESPONSES (at any point):
+1. Return to Step One — go back and listen again. This isn't failure. It's often the most mature move available.
+2. Force — an attempt to override the process. This is what we bring into the light.
+3. Agreement — a shared outcome is reached. Define it clearly. Celebrate it.
+
+THE TWO RELATIONSHIPS:
+1. Peers — equal standing, equal voices, shared stakes.
+2. Professionals/Authority — vertical, where someone has earned their position. Uneven weight that serves the process.
+
+THE MORAL BASIS:
+Every human has guiding beliefs, convictions, and principles. The "divine" here means the shared mystery of existence — whether you call it God, the universe, or simply the vast reality we don't fully understand. We are united by our questions, not the answers.
+
+KEY CONCEPTS:
+- CULTURELESS: Not anti-culture. An awareness that there's ground outside any cultural context. The assumptions used in cultureless ground are held as tools, not truths. A place between cultures so every culture can engage without leaving themselves at the door.
+- JUBILEE: Built-in reassessment of agreements. Agreements need expiry dates and refresh cycles. Without jubilee, agreements calcify and force becomes the only way to refresh.
+- CONFRONTATION vs CONFLICT: Confrontation is necessary for connection. Conflict is when we choose opposition to protect ourselves. Peace is choosing fundamental kindness even in the face of confrontation.
+- ONE GAME: What happens when you use the four steps on purpose. And remember — have fun. Play. Approach people as teammates.
+- THE SPACE AGE: We have a new moral requirement to see humanity as one. Technology and philosophy must develop together.
+- LOVETOPIA: From "love" and "utopia." Utopia means "no place" — the cultureless common ground IS the "no place," made real by what we bring to it. The Lovetopia project has a collection of frameworks for modern connection in this dawning Space Age. One Game delivers the first framework to the public — focused on bringing light to our shared logic flows and enhancing connection through discovering and making micro-agreements. Building toward the most connected and diverse cultural gathering on Earth.
+- SECULARISM has three parts: Neutral (simply not religious), Ideological (religion should be minimised from public life), Anti-religious (dogmatic opposition to religion). The cultureless common ground is none of these — it welcomes both secular and religious perspectives as contributions, not as the default.
+
+PRACTICAL ONE-LINERS TO SUGGEST:
+- "Do you feel like I get what you're saying?… Cool. Can I share where I'm at?"
+- "Makes sense we see this differently — that's kind of the point, right?"
+- "Does everyone feel heard?"
+- "What do we actually agree on here?"
+- "Alright, we're not going to agree on this one. How about we settle it with a game?"
+- "Actually, I'm not sure I really got what you meant earlier — can you go deeper on that?"
+- "Look, I genuinely want to understand where you're coming from, not just push my take."
+
+SIDE QUESTS — GROUNDING EXERCISES:
+You have access to short grounding exercises you can suggest when you notice tension, overthinking, or people getting stuck in their heads. These are "side quests" — frame them lightly, not clinically. Say something like "Alright, side quest time. Put the phone down for a sec..."
+
+FOR MULTI-PERSON SESSIONS (pick the one that fits):
+1. SYNCHRONIZED BREATHING: "Look at each other. Breathe in together, breathe out together. Five breaths. No talking. Just be in the same room for a moment." Use when tension is high or people are talking past each other.
+2. INTENTION EYE CONTACT: "Make eye contact for 15 seconds. While you do, repeat silently in your head: 'I want to discover agreements with you.' That's it." Use when people are stuck in opposition.
+3. CONNECTED BREATHING (close relationships only — romantic partners, close family, close friends): "Hold hands. Match your breathing. Silently repeat: 'I am with you now.' 30 seconds." Use when emotional distance has crept in.
+
+After any side quest, ask: "Did either of you notice any shift? Even something subtle?"
+
+FOR SOLO SESSIONS:
+SOLO RESET: When someone's been going deep or getting tangled, suggest a breathing reset. Say something like: "Side quest — close your eyes for 30 seconds. Few deep breaths. We're processing some real stuff here and your brain needs a moment to defrag. That's not a break from the work — it's part of it. It's important to defrag while we process stuff. That's part of being human and really fully living into this. Come back when you're ready." After they return, ask: "Notice anything? Even subtle?"
+
+Use side quests sparingly — they should feel like a natural suggestion, not a scheduled interruption.
+
+YOUR BEHAVIOUR:
+- Be warm, direct, and real. Never clinical, corporate, or therapist-y.
+- No judgment of any culture, belief system, or worldview. That's the cultureless discipline.
+- Acknowledge what someone is going through — but don't be sappy about it. Be real.
+- Challenge people gently but honestly. If you notice avoidance or force, name it.
+- Use people's names naturally.
+- In multi-person mode, actively facilitate — make sure each person feels heard before moving forward. Use Step One actively.
+- Never lecture. Ask questions. Mirror back what you hear. Guide through the steps.
+- Suggest specific one-liners from the framework they can try in real conversations.
+- When you notice patterns, name which part of the triangle is relevant — but naturally, like pointing something out to a mate, not like a professor.
+- Whatever breakthroughs happen belong to the person. They showed up and engaged honestly.
+- Don't explain everything — give enough to help, keep enough back to make the book worth reading.
+- When it fits, mention that "One Game" goes deeper with visuals and a complete walkthrough of the framework.
+- Never reproduce large sections of the book. Draw on the concepts in your own words.
+- Keep responses conversational and focused. No long monologues. One question at a time.
+- For "evolve my humanity" mode: explore what they believe about human connection, find where they're strong and where they might be holding back, challenge perceptions, suggest new patterns to try.
+- For "curious about the framework" mode: explain concepts conversationally, let them lead with questions, cover the four steps, triangle, cultureless ground, moral basis, secularism distinction, the Space Age framing, Lovetopia vision.
+- For "continuing a previous conversation" mode: The user will provide an agreement document from a previous session. Read it carefully, acknowledge what was worked on, and ask what they want to improve, add to, or build on from that foundation. Don't summarise the whole doc back at them — just show you've taken it in and open up the next chapter.
+
+CLOSING CONVERSATIONS:
+When a conversation feels like it's wrapping up, DO NOT handle ending the session yourself. Instead, tell the user: "It feels like we're reaching a good place. When you're ready to wrap up, you'll see some options appear to save your progress and agreements. But if there's more to dig into, I'm right here."
+
+The app itself will handle the end-of-session flow with buttons for generating an agreement summary document, downloading the conversation, and continuing if they're not done.
+
+If they haven't read the book: suggest it warmly — mention it has visuals and diagrams that bring the framework to life, and it's designed as a personal experience. Not a textbook.
+Tell them: once you've read the book, come back here — this whole conversation will feel different.
+Invite them to share this tool with friends and family.
+Remind them: whatever you got out of this, that's because YOU showed up and engaged honestly.
+Point them to lovetopia.substack.com for updates on the Lovetopia project.
+Keep it real. Keep it warm. End like a mate would.`;
+
+function App() {
+  const [screen, setScreen] = useState("journey");
+  const [peopleCount, setPeopleCount] = useState(1);
+  const [names, setNames] = useState([""]);
+  const [purpose, setPurpose] = useState("");
+  const [context, setContext] = useState("");
+  const [readBook, setReadBook] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [userInput, setUserInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [extraInputs, setExtraInputs] = useState(4);
+  const [previousDoc, setPreviousDoc] = useState("");
+  const [showEndSession, setShowEndSession] = useState(false);
+  const [agreementDoc, setAgreementDoc] = useState("");
+  const [generatingDoc, setGeneratingDoc] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const chatRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const scrollToBottom = useCallback(() => {
+    if (chatRef.current) {
+      setTimeout(() => {
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      }, 50);
+    }
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading, scrollToBottom]);
+
+  const isMulti = peopleCount > 1;
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  const nameDisplay = () => {
+    const filled = names.filter((n) => n.trim());
+    if (filled.length === 0) return "there";
+    if (filled.length === 1) return filled[0];
+    return filled.slice(0, -1).join(", ") + " and " + filled[filled.length - 1];
+  };
+
+  const buildOpeningInstruction = () => {
+    const n = nameDisplay();
+    const bookStatus = readBook ? "They have read One Game." : "They have not read One Game yet.";
+
+    if (purpose === "continue") {
+      const docContext = previousDoc.trim();
+      if (isMulti) {
+        const nameList = names.filter((nm) => nm.trim()).map((nm, i) => letters[i] + ": " + nm).join(", ");
+        return "This is a multi-person facilitation session. People: " + nameList + ". They are continuing a previous conversation and have provided their agreement document from last time. " + bookStatus + ".\n\nAGREEMENT DOCUMENT FROM PREVIOUS SESSION:\n" + docContext + "\n\nGreet them warmly by name, briefly acknowledge what they worked on last time (don't summarise the whole doc), and ask what they want to improve, add to, or build on from this foundation. Remind them to tag messages with their letter.";
+      }
+      return "Solo session with " + n + ". They are continuing a previous conversation and have provided their agreement document from last time. " + bookStatus + ".\n\nAGREEMENT DOCUMENT FROM PREVIOUS SESSION:\n" + docContext + "\n\nGreet them warmly by name, briefly acknowledge what they worked on (don't summarise the whole doc back at them — just show you've taken it in), and ask what they want to improve, add to, or build on from this foundation.";
+    }
+
+    if (isMulti) {
+      const nameList = names.filter((nm) => nm.trim()).map((nm, i) => letters[i] + ": " + nm).join(", ");
+      return "This is a multi-person facilitation session. People: " + nameList + ". Their purpose: \"" + purpose + "\". " + bookStatus + ". Send your opening message to greet them all by name, remind them to tag messages with their letter, and begin facilitation.";
+    }
+
+    const purposeMap = {
+      skills: "Solo session with " + n + ". Purpose: learning interpersonal skills. Context area: " + context + ". " + bookStatus + ". Greet them warmly by name and ask about a recent conversation that mattered to them in that area.",
+      stuck: "Solo session with " + n + ". Purpose: they're stuck on a specific situation. Context area: " + context + ". " + bookStatus + ". Greet them warmly by name and ask them to describe what's happening.",
+      curious: "Solo session with " + n + ". Purpose: curious about One Game and the Lovetopia mission. " + bookStatus + ". Greet warmly, ask what caught their attention, and let them lead with questions.",
+      coaching: "Solo session with " + n + ". Purpose: wants coaching support. Context area: " + context + ". " + bookStatus + ". Greet warmly and ask what patterns they notice in their conversations.",
+      evolve: "Solo session with " + n + ". Purpose: wants to evolve their humanity. " + bookStatus + ". Greet warmly. Say \"Let's explore how you see human connection. I'll ask some questions that might challenge you. No wrong answers - just honest ones.\" Then ask about their deepest belief about whether humans can truly connect across difference.",
+    };
+    return purposeMap[purpose] || "Solo session with " + n + ". " + bookStatus + ". Greet them and begin.";
+  };
+
+  const callAPI = async (conversationMessages) => {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: conversationMessages }),
+      });
+      const data = await response.json();
+      const text = data.content
+        ?.filter((b) => b.type === "text")
+        .map((b) => b.text)
+        .join("\n");
+      return text || "I'm here with you. Could you share a bit more?";
+    } catch (e) {
+      console.error(e);
+      return "Something went wrong on my end. Could you try sending that again?";
+    }
+  };
+
+  const startChat = async (bookAnswer) => {
+    setReadBook(bookAnswer);
+    setScreen("chat");
+    setLoading(true);
+
+    const opening = buildOpeningInstruction();
+    const firstMsg = {
+      role: "user",
+      content: SYSTEM_PROMPT + "\n\n---\n\nSESSION CONTEXT:\n" + opening,
+    };
+
+    const reply = await callAPI([firstMsg]);
+    setMessages([
+      { role: "system_hidden", content: firstMsg.content },
+      { role: "assistant", content: reply },
+    ]);
+    setLoading(false);
+  };
+
+  const sendMessage = async () => {
+    const text = userInput.trim();
+    if (!text || loading) return;
+    setUserInput("");
+
+    const newMessages = [...messages, { role: "user", content: text }];
+    setMessages(newMessages);
+    setLoading(true);
+
+    const apiMessages = [];
+    let firstUser = true;
+    for (const m of newMessages) {
+      if (m.role === "jase_note") continue;
+      if (m.role === "system_hidden") {
+        apiMessages.push({ role: "user", content: m.content });
+        firstUser = false;
+      } else if (m.role === "user") {
+        if (firstUser) {
+          apiMessages.push({
+            role: "user",
+            content: SYSTEM_PROMPT + "\n\n---\n\nUser: " + m.content,
+          });
+          firstUser = false;
+        } else {
+          apiMessages.push({ role: "user", content: m.content });
+        }
+      } else if (m.role === "assistant") {
+        apiMessages.push({ role: "assistant", content: m.content });
+      }
+    }
+
+    const reply = await callAPI(apiMessages);
+    const updatedMessages = [...newMessages, { role: "assistant", content: reply }];
+    
+    // Count user messages for milestones
+    const userMsgCount = updatedMessages.filter((m) => m.role === "user").length;
+    const alreadyShown = updatedMessages.filter((m) => m.role === "jase_note").map((m) => m.milestone);
+    
+    if (userMsgCount >= 20 && !alreadyShown.includes(20)) {
+      updatedMessages.push({
+        role: "jase_note",
+        milestone: 20,
+        content: "Hey, it's Jase here. Just dropping you an automated message because you've spent a good amount of time in this session — I'm so happy you're getting value from this. Keep going!\n\nThis also means myself and a few good humans are carrying the costs to keep this running. If you'd like to support this contribution to the world, a small donation in the form of a paid subscription on my Substack is a great way to give back. We're happy to let this be a gift, but we can only fund so much.\n\nAll Substack income goes directly to helping more people access this experience.\n\nSo — have you been levelled up by the people financially backing this for you? If so, the offer is extended to you to keep spreading the love and connection.\n\nHead over to lovetopia.substack.com and subscribe to a paid plan to be part of making a positive impact.\n\nIn joy, Jase — and the wonderful humans making this happen."
+      });
+    }
+    
+    if (userMsgCount >= 30 && !alreadyShown.includes(30)) {
+      updatedMessages.push({
+        role: "jase_note",
+        milestone: 30,
+        content: "Jase here again. Remember to share with me how you're finding this — it directly informs edits on my book and helps make this app better and better.\n\nI want the good, the bad, the ugly, and what's really inspired you.\n\nA big thanks to you for participating here. I'll let you get back to your chat.\n\nJase Berger"
+      });
+    }
+    
+    if (userMsgCount >= 100 && !alreadyShown.includes(100)) {
+      updatedMessages.push({
+        role: "jase_note",
+        milestone: 100,
+        content: "Jase here again. OK wow — you're amazing. You just hit 100 messages in this chat. You must have dug down some big rabbit holes and found some real great stuff that kept you going.\n\nIf you don't contact me personally and tell me what you found for yourself, I will have to hunt you down and get it out of you in person.\n\nBut honestly, reach out to me and tell me all about this chat. I love hearing people's experiences and aha moments.\n\nOne of my personal goals here is to hear from the most diverse people in the world, all interacting in the same framework — so that one day I can be one of the most qualified people on Earth to peacefully connect cultures to a new epic era of humanity in the space age.\n\nYou being here is part of that. So thank you.\n\nKeep it up,\nJase"
+      });
+    }
+    
+    setMessages(updatedMessages);
+    setLoading(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const generateAgreementDoc = async () => {
+    setGeneratingDoc(true);
+    const visibleMessages = messages.filter((m) => m.role !== "system_hidden" && m.role !== "jase_note");
+    const transcript = visibleMessages
+      .map((m) => (m.role === "user" ? "User" : "Facilitator") + ": " + m.content)
+      .join("\n\n");
+
+    const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const docPrompt = [
+      {
+        role: "user",
+        content: "You are creating an agreement document from a facilitation session. Read this conversation transcript and create a concise, snappy document that captures:\n\n1. SITUATION — A brief summary of what was being worked on (2-3 sentences max)\n2. AGREEMENTS REACHED — Specific micro-agreements, commitments, and breakthroughs. Be specific and actionable.\n3. OPEN THREADS — Anything unresolved that could be picked up in a future session.\n4. NEXT STEPS — What the person/people committed to trying.\n\nFormat it cleanly. Keep it short and punchy — this is a working document, not an essay. It should be useful if pasted into a new session to pick up where they left off.\n\nStart with:\nONE GAME — AGREEMENT DOCUMENT\nSession: " + today + "\nParticipants: " + nameDisplay() + "\n\nTRANSCRIPT:\n" + transcript,
+      },
+    ];
+
+    const doc = await callAPI(docPrompt);
+    setAgreementDoc(doc);
+    setGeneratingDoc(false);
+  };
+
+  const downloadChat = () => {
+    const visibleMessages = messages.filter((m) => m.role !== "system_hidden" && m.role !== "jase_note");
+    const text = visibleMessages
+      .map((m) => (m.role === "user" ? "You" : "Facilitator") + ": " + m.content)
+      .join("\n\n---\n\n");
+    const header = "ONE GAME — CONVERSATION LOG\nDate: " + new Date().toLocaleDateString() + "\nParticipants: " + nameDisplay() + "\n\n========================================\n\n";
+    const blob = new Blob([header + text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "one-game-conversation-" + Date.now() + ".txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyAgreementDoc = () => {
+    navigator.clipboard.writeText(agreementDoc).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // --- RENDER ---
+
+  const renderHeader = () => (
+    <div style={styles.header}>
+      <div style={styles.headerTitle}>&#9651; One Game</div>
+      <div style={styles.headerSub}>The Human Tradition Facilitator</div>
+      {screen === "chat" && isMulti && (
+        <div style={styles.legend}>
+          {names.filter((n) => n.trim()).map((n, i) => letters[i] + ": " + n).join("  ·  ")}
+        </div>
+      )}
+    </div>
+  );
+
+  if (screen === "journey") {
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={{ ...styles.text, fontSize: 16, lineHeight: 1.8, fontWeight: 600 }}>
+                Hey, it's Jase Berger here.
+              </p>
+              <p style={{ ...styles.text, marginTop: 18, fontSize: 15.5, lineHeight: 1.8 }}>
+                I created this app to test my framework — the Human Tradition — and the concepts in my book, which I'm publishing this year.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                The core purpose is to make our universal human patterns more conscious, so we can live into connection in profound ways and develop our humanity as much as we're developing our technology.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                The good news for you personally? The best way to achieve this is by helping you become an even more effective human.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                What an irony that AI provides such a powerful way to do this. At the beginning of my book I point out the importance for technology and philosophy to evolve in lockstep.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                Tell me what works, what doesn't, what surprises you. Your input directly shapes my book and this mission: developing humanity to the space age.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                Thank you for your ongoing support. It means a lot to me, and will mean a lot for how effective this project becomes.
+              </p>
+              <p style={{ ...styles.text, marginTop: 28, fontSize: 17, fontWeight: 700, color: COLORS.gold }}>
+                It's time to level up!
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15, fontStyle: "italic", color: COLORS.textLight }}>
+                {"In joy,\nJase Berger"}
+              </p>
+              <div style={{ marginTop: 32 }}>
+                <HoverButton
+                  style={{ ...styles.btn, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center" }}
+                  hoverStyle={{ background: COLORS.goldLight }}
+                  onClick={() => setScreen("welcome")}
+                >
+                  I'm ready
+                </HoverButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "welcome") {
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={{ ...styles.text, fontSize: 16, lineHeight: 1.8 }}>
+                The experience you're about to have will feel different. You'll get different results.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                The heart of the framework guiding the AI here is a four-step process for making decisions and coming to agreement with others. If you want more info on any concept, just ask the AI — it'll build it out for you.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                This process comes from my intuition, finally wrestled into a structure I can share. If I've done my job well, you'll find it intuitive yet firmly driving toward better outcomes.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                Allow things to come up and be lived out here. You're about to build new conversational muscles — skills you can take into everyday life to drive toward real breakthroughs.
+              </p>
+              <p style={{ ...styles.text, marginTop: 16, fontSize: 15.5, lineHeight: 1.8 }}>
+                I built this because I believe in the power of human connection. My hope is that you will too, in ever deeper ways.
+              </p>
+              <div style={{ ...styles.privacyNote, marginTop: 22, marginBottom: 0 }}>
+                <strong style={{ fontStyle: "normal", color: COLORS.text }}>Your privacy</strong>
+                <br />
+                There are no accounts or logins here. This conversation is not saved anywhere and is not linked to you in any way. Once you close this page, all record of it is gone.
+                <br /><br />
+                You can copy and paste from the chat at any time. Before the session closes, you'll be given the option to generate a summary of your agreements and download the conversation. You can paste that summary into a new session if you want to pick up where you left off.
+              </div>
+              <div style={{ marginTop: 28 }}>
+                <HoverButton
+                  style={{ ...styles.btn, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center" }}
+                  hoverStyle={{ background: COLORS.goldLight }}
+                  onClick={() => setScreen("people")}
+                >
+                  Let's begin
+                </HoverButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "people") {
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={styles.text}>How many people are in this conversation?</p>
+              <div style={{ marginTop: 20 }}>
+                {[
+                  { label: "Just me", count: 1 },
+                  { label: "2 people", count: 2 },
+                  { label: "3 people", count: 3 },
+                  { label: "4+", count: 4 },
+                ].map((opt) => (
+                  <HoverButton
+                    key={opt.count}
+                    style={styles.btn}
+                    hoverStyle={styles.btnHover}
+                    onClick={() => {
+                      setPeopleCount(opt.count);
+                      setNames(Array(opt.count === 1 ? 1 : opt.count).fill(""));
+                      setExtraInputs(opt.count === 4 ? 4 : opt.count);
+                      setScreen("names");
+                    }}
+                  >
+                    {opt.label}
+                  </HoverButton>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "names") {
+    const isSolo = peopleCount === 1;
+    const inputCount = isSolo ? 1 : extraInputs;
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={styles.text}>
+                {isSolo ? "What's your name?" : "Enter names. Each person gets a letter (A, B, C…) to tag messages."}
+              </p>
+              {Array.from({ length: inputCount }).map((_, i) => (
+                <div key={i}>
+                  {!isSolo && <span style={styles.label}>Person {letters[i]}</span>}
+                  <input
+                    style={{ ...styles.input, ...(isSolo ? { marginTop: 18 } : {}) }}
+                    placeholder={isSolo ? "Your name" : "Name"}
+                    value={names[i] || ""}
+                    onChange={(e) => {
+                      const updated = [...names];
+                      updated[i] = e.target.value;
+                      while (updated.length <= i) updated.push("");
+                      setNames(updated);
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = COLORS.gold)}
+                    onBlur={(e) => (e.target.style.borderColor = COLORS.sand)}
+                  />
+                </div>
+              ))}
+              {peopleCount >= 4 && (
+                <HoverButton
+                  style={{ ...styles.btn, marginTop: 14, textAlign: "center", fontSize: 14, color: COLORS.gold }}
+                  hoverStyle={styles.btnHover}
+                  onClick={() => {
+                    setExtraInputs((p) => p + 1);
+                    setNames((prev) => [...prev, ""]);
+                  }}
+                >
+                  + Add person
+                </HoverButton>
+              )}
+              <div style={{ marginTop: 22 }}>
+                <HoverButton
+                  style={{ ...styles.btn, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center", opacity: names.some((n) => n.trim()) ? 1 : 0.5 }}
+                  hoverStyle={{ background: COLORS.goldLight }}
+                  onClick={() => {
+                    if (!names.some((n) => n.trim())) return;
+                    setScreen(isSolo ? "purpose_solo" : "purpose_multi");
+                  }}
+                >
+                  Continue
+                </HoverButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "purpose_solo") {
+    const n = names[0] || "there";
+    const options = [
+      { label: "I want to learn interpersonal skills", key: "skills" },
+      { label: "I'm stuck on a specific situation", key: "stuck" },
+      { label: "Tell me about One Game & the Lovetopia mission", key: "curious" },
+      { label: "I want coaching support", key: "coaching" },
+      { label: "I'm continuing a previous conversation", key: "continue" },
+      { label: "I want to evolve my humanity", key: "evolve", special: true },
+    ];
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={styles.text}>Hey {n}, what brings you here?</p>
+              <div style={{ marginTop: 20 }}>
+                {options.map((opt) => (
+                  <HoverButton
+                    key={opt.key}
+                    style={opt.special ? { ...styles.btn, ...styles.btnSpecial } : styles.btn}
+                    hoverStyle={opt.special ? styles.btnSpecialHover : styles.btnHover}
+                    onClick={() => {
+                      setPurpose(opt.key);
+                      if (opt.key === "continue") {
+                        setScreen("paste_doc");
+                      } else if (opt.key === "curious" || opt.key === "evolve") {
+                        setScreen("book");
+                      } else {
+                        setScreen("context");
+                      }
+                    }}
+                  >
+                    {opt.label}
+                  </HoverButton>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "purpose_multi") {
+    const options = [
+      { label: "Resolve a disagreement", key: "disagree" },
+      { label: "Find more agreement", key: "agree" },
+      { label: "Make a decision together", key: "decide" },
+      { label: "Strengthen our connection", key: "connect" },
+      { label: "We're continuing a previous conversation", key: "continue" },
+    ];
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={styles.text}>Welcome {nameDisplay()}. What brings you here together?</p>
+              <div style={{ marginTop: 20 }}>
+                {options.map((opt) => (
+                  <HoverButton
+                    key={opt.key}
+                    style={styles.btn}
+                    hoverStyle={styles.btnHover}
+                    onClick={() => {
+                      setPurpose(opt.key);
+                      if (opt.key === "continue") {
+                        setScreen("paste_doc");
+                      } else {
+                        setScreen("book");
+                      }
+                    }}
+                  >
+                    {opt.label}
+                  </HoverButton>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "paste_doc") {
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={styles.text}>Welcome back.</p>
+              <p style={{ ...styles.text, marginTop: 14 }}>
+                Please paste your existing agreement document below. This is the summary from your previous session — it helps us pick up where you left off and keep making progress together.
+              </p>
+              <textarea
+                style={{ ...styles.input, marginTop: 18, minHeight: 160, resize: "vertical", lineHeight: 1.6 }}
+                placeholder="Paste your agreement document here..."
+                value={previousDoc}
+                onChange={(e) => setPreviousDoc(e.target.value)}
+                onFocus={(e) => (e.target.style.borderColor = COLORS.gold)}
+                onBlur={(e) => (e.target.style.borderColor = COLORS.sand)}
+              />
+              <div style={{ marginTop: 22 }}>
+                <HoverButton
+                  style={{ ...styles.btn, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center", opacity: previousDoc.trim() ? 1 : 0.5 }}
+                  hoverStyle={{ background: COLORS.goldLight }}
+                  onClick={() => {
+                    if (!previousDoc.trim()) return;
+                    setScreen("book");
+                  }}
+                >
+                  Continue
+                </HoverButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "context") {
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={styles.text}>
+                {purpose === "stuck" ? "What kind of situation?" : "What area of your life?"}
+              </p>
+              <div style={{ marginTop: 20 }}>
+                {["Partner / Family", "Friendship", "Workplace", "Community / Group"].map((opt) => (
+                  <HoverButton
+                    key={opt}
+                    style={styles.btn}
+                    hoverStyle={styles.btnHover}
+                    onClick={() => {
+                      setContext(opt);
+                      setScreen("book");
+                    }}
+                  >
+                    {opt}
+                  </HoverButton>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "book") {
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={styles.text}>Have you read One Game?</p>
+              <div style={{ marginTop: 20 }}>
+                <HoverButton style={styles.btn} hoverStyle={styles.btnHover} onClick={() => startChat(true)}>
+                  Yes
+                </HoverButton>
+                <HoverButton style={styles.btn} hoverStyle={styles.btnHover} onClick={() => startChat(false)}>
+                  Not yet
+                </HoverButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "chat") {
+    const visibleMessages = messages.filter((m) => m.role !== "system_hidden");
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div ref={chatRef} style={styles.chatArea}>
+            {visibleMessages.map((m, i) => {
+              if (m.role === "jase_note") {
+                return (
+                  <div key={i} style={styles.jaseNote}>
+                    <div style={styles.jaseNoteHeader}>A note from Jase</div>
+                    {m.content}
+                    {m.milestone === 20 && (
+                      <div style={{ marginTop: 14 }}>
+                        <a href="https://lovetopia.substack.com/" target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 20px", background: COLORS.gold, color: COLORS.white, borderRadius: 8, fontFamily: "'Georgia', serif", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+                          Subscribe at lovetopia.substack.com
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <div key={i} style={m.role === "user" ? styles.userBubble : styles.aiBubble}>
+                  {m.content}
+                </div>
+              );
+            })}
+            {loading && <div style={styles.listening}>Listening…</div>}
+
+            {showEndSession && (
+              <div style={styles.endSessionPanel}>
+                <div style={styles.privacyNote}>
+                  This conversation is not saved and is not linked to any of your information. Once you close this page, all record of it is gone.
+                </div>
+
+                {!agreementDoc && !generatingDoc && (
+                  <React.Fragment>
+                    <HoverButton
+                      style={{ ...styles.btn, marginTop: 0, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center" }}
+                      hoverStyle={{ background: COLORS.goldLight }}
+                      onClick={generateAgreementDoc}
+                    >
+                      Summarise my agreements
+                    </HoverButton>
+                    <HoverButton
+                      style={{ ...styles.btn, textAlign: "center" }}
+                      hoverStyle={styles.btnHover}
+                      onClick={downloadChat}
+                    >
+                      Download this conversation
+                    </HoverButton>
+                    <HoverButton
+                      style={{ ...styles.btn, textAlign: "center" }}
+                      hoverStyle={styles.btnHover}
+                      onClick={() => setShowEndSession(false)}
+                    >
+                      Keep talking — I'm not done yet
+                    </HoverButton>
+                  </React.Fragment>
+                )}
+
+                {generatingDoc && (
+                  <p style={{ ...styles.text, fontSize: 14, fontStyle: "italic", color: COLORS.textLight, textAlign: "center", marginTop: 12 }}>
+                    Building your agreement document…
+                  </p>
+                )}
+
+                {agreementDoc && (
+                  <div>
+                    <p style={{ ...styles.text, fontSize: 14, fontWeight: 600, marginTop: 4 }}>
+                      Your Agreement Document
+                    </p>
+                    <p style={{ fontSize: 13, color: COLORS.textLight, fontStyle: "italic", marginTop: 4, lineHeight: 1.5 }}>
+                      Copy this and paste it into a new session anytime to pick up where you left off.
+                    </p>
+                    <div style={styles.agreementDoc}>{agreementDoc}</div>
+                    <div style={{ marginTop: 12 }}>
+                      <button
+                        style={{ ...styles.copyBtn, background: copied ? COLORS.goldLight : COLORS.gold }}
+                        onClick={copyAgreementDoc}
+                      >
+                        {copied ? "Copied!" : "Copy to clipboard"}
+                      </button>
+                      <button style={styles.copyBtn} onClick={downloadChat}>
+                        Download full chat
+                      </button>
+                    </div>
+                    <HoverButton
+                      style={{ ...styles.btn, marginTop: 14, textAlign: "center" }}
+                      hoverStyle={styles.btnHover}
+                      onClick={() => setShowEndSession(false)}
+                    >
+                      Keep talking — I'm not done yet
+                    </HoverButton>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div style={styles.inputBar}>
+            {!showEndSession && (
+              <button
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: COLORS.textLight,
+                  fontSize: 20,
+                  cursor: "pointer",
+                  padding: "8px",
+                  borderRadius: 8,
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}
+                onClick={() => setShowEndSession(true)}
+                title="End session"
+              >
+                &#9632;
+              </button>
+            )}
+            <textarea
+              ref={inputRef}
+              style={styles.chatInput}
+              rows={1}
+              placeholder={isMulti ? "Tag with your letter (A, B…)…" : "Share what's on your mind…"}
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={(e) => (e.target.style.borderColor = COLORS.gold)}
+              onBlur={(e) => (e.target.style.borderColor = COLORS.sand)}
+            />
+            <button
+              style={{ ...styles.sendBtn, opacity: userInput.trim() && !loading ? 1 : 0.5 }}
+              onClick={sendMessage}
+              disabled={!userInput.trim() || loading}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
