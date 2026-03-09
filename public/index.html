@@ -41,13 +41,17 @@
 }
 @keyframes rewindFade { 0% { opacity: 1; } 100% { opacity: 0; } }
 
-/* Coin bounce */
+/* Coin bounce and jingle */
 .coin-bounce {
-  animation: coinDrop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: coinDrop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 @keyframes coinDrop {
-  0% { transform: translateY(-20px) scale(0.5); opacity: 0; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
+  0% { transform: translateY(-30px) scale(0.3) rotate(-20deg); opacity: 0; }
+  30% { transform: translateY(2px) scale(1.15) rotate(8deg); opacity: 1; }
+  45% { transform: translateY(-6px) scale(0.95) rotate(-5deg); }
+  60% { transform: translateY(1px) scale(1.05) rotate(3deg); }
+  75% { transform: translateY(-2px) scale(0.98) rotate(-1deg); }
+  100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
 }
 ```
 
@@ -526,6 +530,9 @@ function App() {
   const [shaking, setShaking] = useState(false);
   const [lastCoinBounce, setLastCoinBounce] = useState(false);
   const [showCoinList, setShowCoinList] = useState(false);
+  const [pendingAgreement, setPendingAgreement] = useState(null);
+  const [agreementInput, setAgreementInput] = useState("");
+  const [dashboardEvents, setDashboardEvents] = useState([]);
   const chatRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -541,38 +548,55 @@ function App() {
     scrollToBottom();
   }, [messages, loading, scrollToBottom]);
 
+  // ─── DASHBOARD EVENT QUEUE (AI reads these) ───
+  const addDashboardEvent = (event) => {
+    setDashboardEvents(prev => [...prev, event]);
+  };
+
+  const consumeDashboardEvents = () => {
+    const events = [...dashboardEvents];
+    setDashboardEvents([]);
+    return events;
+  };
+
   // ─── EFFECT TRIGGERS ───
   const triggerForce = () => {
     setShowForceFlash(true);
     setShaking(true);
     setTimeout(() => setShowForceFlash(false), 600);
     setTimeout(() => setShaking(false), 500);
+    addDashboardEvent("[Dashboard: Force was called at Step " + currentStep + ". Someone felt force was being used.]");
     ogTrack('track_event', { event_type: 'response_force', screen: 'chat', event_data: { step: currentStep } });
   };
 
   const triggerReturnStep1 = () => {
+    const fromStep = currentStep;
     setShowRewindFlash(true);
     setCurrentStep(1);
     setTimeout(() => setShowRewindFlash(false), 800);
-    ogTrack('track_event', { event_type: 'response_return', screen: 'chat', event_data: { from_step: currentStep } });
+    addDashboardEvent("[Dashboard: Return to Step 1 was pressed from Step " + fromStep + ". The group is going back to listening.]");
+    ogTrack('track_event', { event_type: 'response_return', screen: 'chat', event_data: { from_step: fromStep } });
   };
 
   const triggerAgreement = (label) => {
-    const newAgreement = { id: Date.now(), label: label || "Agreement " + (agreements.length + 1), step: currentStep };
+    const newAgreement = { id: Date.now(), label: label, step: currentStep };
     setAgreements(prev => [...prev, newAgreement]);
     setLastCoinBounce(true);
-    setTimeout(() => setLastCoinBounce(false), 500);
+    setTimeout(() => setLastCoinBounce(false), 1200);
+    setPendingAgreement(null);
+    setAgreementInput("");
     if (typeof confetti === "function") {
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ["#B8860B", "#D4A843", "#FFD700", "#FFF8E7"] });
     }
-    ogTrack('track_event', { event_type: 'response_agreement', screen: 'chat', event_data: { step: currentStep, agreement_count: agreements.length + 1 } });
+    addDashboardEvent("[Dashboard: Agreement reached at Step " + currentStep + ": \"" + label + "\". Total agreements: " + (agreements.length + 1) + ".]");
+    ogTrack('track_event', { event_type: 'response_agreement', screen: 'chat', event_data: { step: currentStep, label: label, agreement_count: agreements.length + 1 } });
   };
 
-  const advanceStep = () => {
-    if (currentStep < 4) {
-      setCurrentStep(prev => prev + 1);
-      ogTrack('track_event', { event_type: 'step_advanced', screen: 'chat', event_data: { new_step: currentStep + 1 } });
-    }
+  const suggestStep = (stepNum) => {
+    if (stepNum === currentStep) return;
+    setCurrentStep(stepNum);
+    addDashboardEvent("[Dashboard: The conversation moved to Step " + stepNum + " (" + stepNames[stepNum].split(" — ")[0] + "). Guide the conversation accordingly.]");
+    ogTrack('track_event', { event_type: 'step_changed', screen: 'chat', event_data: { new_step: stepNum } });
   };
 
   const stepNames = {
@@ -692,6 +716,10 @@ function App() {
     }
     ogTrack('update_session', { message_count: visibleCount });
 
+    // ─── Consume dashboard events for AI context ───
+    const pendingEvents = consumeDashboardEvents();
+    const eventPrefix = pendingEvents.length > 0 ? pendingEvents.join("\n") + "\n\n" : "";
+
     const apiMessages = [];
     let firstUser = true;
     for (const m of newMessages) {
@@ -707,7 +735,10 @@ function App() {
           });
           firstUser = false;
         } else {
-          apiMessages.push({ role: "user", content: m.content });
+          // Add dashboard events to the latest user message only
+          const isLast = m === newMessages[newMessages.length - 1];
+          const content = isLast && eventPrefix ? eventPrefix + m.content : m.content;
+          apiMessages.push({ role: "user", content: content });
         }
       } else if (m.role === "assistant") {
         apiMessages.push({ role: "assistant", content: m.content });
@@ -1240,93 +1271,124 @@ function App() {
         <div style={styles.inner} className={shaking ? "shake" : ""}>
           {renderHeader()}
 
-          {/* ─── TOP DASHBOARD ─── */}
+          {/* ─── TOP DASHBOARD (sticky) ─── */}
           <div style={{
-            padding: "10px 16px",
+            padding: "10px 16px 8px",
             background: COLORS.cream,
             borderBottom: "1px solid " + COLORS.sand,
             display: "flex",
             flexDirection: "column",
-            gap: 8,
+            gap: 7,
+            position: "sticky",
+            top: 76,
+            zIndex: 9,
           }}>
-            {/* Step indicator */}
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}>
-              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600, letterSpacing: "0.05em" }}>
-                {"Step " + currentStep + ": " + stepNames[currentStep].split(" — ")[0]}
-              </div>
-              <div style={{ fontSize: 11, color: COLORS.textLight, fontStyle: "italic" }}>
-                {stepNames[currentStep].split(" — ")[1]}
-              </div>
-            </div>
-
-            {/* Three Response buttons + Next Step */}
-            <div style={{ display: "flex", gap: 6 }}>
+            {/* Three Responses: Return | Force (small) | Agree */}
+            <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+              <button onClick={triggerReturnStep1} style={{
+                flex: 2, padding: "9px 6px", border: "1px solid " + COLORS.gold, borderRadius: 8,
+                background: COLORS.goldBg, color: COLORS.gold, fontSize: 12,
+                fontFamily: "'Georgia', serif", cursor: "pointer", fontWeight: 600,
+                transition: "all 0.15s",
+              }}>
+                &#8634; Step 1
+              </button>
               <button onClick={triggerForce} style={{
-                flex: 1, padding: "8px 4px", border: "1px solid #C0392B", borderRadius: 8,
-                background: "rgba(192,57,43,0.08)", color: "#C0392B", fontSize: 12,
+                flex: 1, padding: "9px 4px", border: "1px solid #C0392B", borderRadius: 8,
+                background: "rgba(192,57,43,0.08)", color: "#C0392B", fontSize: 11,
                 fontFamily: "'Georgia', serif", cursor: "pointer", fontWeight: 600,
                 transition: "all 0.15s",
               }}>
                 Force
               </button>
-              <button onClick={triggerReturnStep1} style={{
-                flex: 1, padding: "8px 4px", border: "1px solid " + COLORS.gold, borderRadius: 8,
-                background: COLORS.goldBg, color: COLORS.gold, fontSize: 12,
-                fontFamily: "'Georgia', serif", cursor: "pointer", fontWeight: 600,
-                transition: "all 0.15s",
-              }}>
-                Step 1
-              </button>
-              <button onClick={() => {
-                const label = prompt("What was agreed?");
-                if (label && label.trim()) triggerAgreement(label.trim());
-              }} style={{
-                flex: 1, padding: "8px 4px", border: "1px solid #27AE60", borderRadius: 8,
+              <button onClick={() => setPendingAgreement(true)} style={{
+                flex: 2, padding: "9px 6px", border: "1px solid #27AE60", borderRadius: 8,
                 background: "rgba(39,174,96,0.08)", color: "#27AE60", fontSize: 12,
                 fontFamily: "'Georgia', serif", cursor: "pointer", fontWeight: 600,
                 transition: "all 0.15s",
               }}>
-                Agree
+                &#10003; Agree
               </button>
-              {currentStep < 4 && (
-                <button onClick={advanceStep} style={{
-                  padding: "8px 10px", border: "1px solid " + COLORS.sand, borderRadius: 8,
-                  background: COLORS.white, color: COLORS.textLight, fontSize: 12,
-                  fontFamily: "'Georgia', serif", cursor: "pointer",
-                  transition: "all 0.15s",
+            </div>
+
+            {/* Pending agreement confirmation */}
+            {pendingAgreement && (
+              <div style={{
+                display: "flex", gap: 6, alignItems: "center",
+                background: COLORS.white,
+                border: "1px solid #27AE60",
+                borderRadius: 8,
+                padding: "8px 10px",
+              }}>
+                <input
+                  value={agreementInput}
+                  onChange={(e) => setAgreementInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && agreementInput.trim()) triggerAgreement(agreementInput.trim()); }}
+                  placeholder="What was agreed?"
+                  autoFocus
+                  style={{
+                    flex: 1, border: "none", outline: "none", fontSize: 13,
+                    fontFamily: "'Georgia', serif", color: COLORS.text, background: "transparent",
+                  }}
+                />
+                <button onClick={() => { if (agreementInput.trim()) triggerAgreement(agreementInput.trim()); }} style={{
+                  padding: "6px 14px", background: "#27AE60", color: COLORS.white,
+                  border: "none", borderRadius: 6, fontSize: 12, fontFamily: "'Georgia', serif",
+                  cursor: "pointer", fontWeight: 600,
                 }}>
-                  Next →
+                  Confirm
                 </button>
-              )}
+                <button onClick={() => { setPendingAgreement(null); setAgreementInput(""); }} style={{
+                  padding: "6px 8px", background: "transparent", color: COLORS.textLight,
+                  border: "none", fontSize: 14, cursor: "pointer",
+                }}>
+                  &#10005;
+                </button>
+              </div>
+            )}
+
+            {/* Four Steps as buttons */}
+            <div style={{ display: "flex", gap: 4 }}>
+              {[1, 2, 3, 4].map(step => (
+                <button key={step} onClick={() => suggestStep(step)} style={{
+                  flex: 1, padding: "7px 4px", borderRadius: 7,
+                  border: step === currentStep ? "2px solid " + COLORS.gold : "1px solid " + COLORS.sand,
+                  background: step === currentStep ? COLORS.gold : COLORS.white,
+                  color: step === currentStep ? COLORS.white : (step < currentStep ? COLORS.gold : COLORS.textLight),
+                  fontSize: 11, fontFamily: "'Georgia', serif", cursor: "pointer",
+                  fontWeight: step === currentStep ? 700 : 400,
+                  transition: "all 0.2s",
+                  opacity: step === currentStep ? 1 : 0.85,
+                }}>
+                  {step + ". " + stepNames[step].split(" — ")[0]}
+                </button>
+              ))}
             </div>
 
             {/* Coin stack */}
             {agreements.length > 0 && (
               <div
                 onClick={() => setShowCoinList(!showCoinList)}
-                style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "4px 0" }}
+                style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "2px 0" }}
               >
                 <div style={{ display: "flex", alignItems: "flex-end" }}>
-                  {agreements.slice(-8).map((a, i) => (
-                    <div key={a.id} className={i === agreements.slice(-8).length - 1 && lastCoinBounce ? "coin-bounce" : ""} style={{
-                      width: 22, height: 22, borderRadius: "50%",
+                  {agreements.slice(-10).map((a, i) => (
+                    <div key={a.id} className={i === agreements.slice(-10).length - 1 && lastCoinBounce ? "coin-bounce" : ""} style={{
+                      width: 24, height: 24, borderRadius: "50%",
                       background: "linear-gradient(135deg, #FFD700, #B8860B)",
                       border: "2px solid #8B6914",
-                      marginLeft: i > 0 ? -8 : 0,
+                      marginLeft: i > 0 ? -9 : 0,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 10, color: COLORS.white, fontWeight: 700,
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
                     }}>
-                      {agreements.length - agreements.slice(-8).length + i + 1}
+                      {agreements.length - agreements.slice(-10).length + i + 1}
                     </div>
                   ))}
                 </div>
                 <span style={{ fontSize: 12, color: COLORS.gold, fontWeight: 600 }}>
                   {agreements.length + " agreement" + (agreements.length !== 1 ? "s" : "")}
+                  <span style={{ fontSize: 10, color: COLORS.textLight, marginLeft: 4 }}>{showCoinList ? "▲" : "▼"}</span>
                 </span>
               </div>
             )}
