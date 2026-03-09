@@ -2,7 +2,7 @@
 
 A coaching and facilitation tool based on the Human Tradition framework from *One Game* by Jase Berger.
 
-## Project Structure
+## Project Structure 
 
 ```
 one-game-facilitator/
