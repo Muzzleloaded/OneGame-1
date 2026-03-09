@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>One Game — Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Georgia, 'Times New Roman', serif; background: #FEFCF8; color: #3D3426; }
+    .container { max-width: 940px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; margin-bottom: 28px; }
+    .header .brand { font-size: 15px; letter-spacing: 0.18em; color: #B8860B; text-transform: uppercase; }
+    .header h1 { font-size: 22px; margin-top: 4px; font-weight: 400; }
+    .login-box { max-width: 360px; margin: 120px auto; background: #fff; border: 1px solid #E8DCC8; border-radius: 14px; padding: 40px 32px; text-align: center; }
+    .login-box input { width: 100%; padding: 12px 16px; border: 1px solid #E8DCC8; border-radius: 10px; font-size: 15px; font-family: Georgia, serif; outline: none; margin-top: 16px; }
+    .login-box input:focus { border-color: #B8860B; }
+    .login-box button, .btn { padding: 12px 20px; background: #B8860B; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-family: Georgia, serif; cursor: pointer; font-weight: 600; margin-top: 14px; }
+    .login-box button:hover, .btn:hover { background: #D4A843; }
+    .error { color: #C0392B; font-size: 13px; margin-top: 8px; }
+    .controls { display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; }
+    .range-btn { padding: 8px 16px; border: 1px solid #E8DCC8; border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; font-family: Georgia, serif; color: #3D3426; }
+    .range-btn.active { background: #B8860B; color: #fff; border-color: #B8860B; }
+    .stats-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+    .stat-card { background: #fff; border: 1px solid #E8DCC8; border-radius: 12px; padding: 20px 18px; flex: 1 1 140px; min-width: 140px; }
+    .stat-card .num { font-size: 28px; font-weight: 700; color: #B8860B; }
+    .stat-card .label { font-size: 13px; margin-top: 4px; }
+    .stat-card .sub { font-size: 11px; color: #7A6E5D; margin-top: 2px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .panel { background: #fff; border: 1px solid #E8DCC8; border-radius: 12px; padding: 20px 18px; }
+    .panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+    .bar-row { margin-bottom: 10px; }
+    .bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+    .bar-label .count { color: #7A6E5D; }
+    .bar-track { height: 6px; background: #FBF7F0; border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, #B8860B, #D4A843); border-radius: 3px; }
+    .empty { font-size: 13px; color: #7A6E5D; font-style: italic; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { padding: 8px 6px; text-align: left; color: #7A6E5D; border-bottom: 2px solid #E8DCC8; }
+    td { padding: 10px 6px; border-bottom: 1px solid #FBF7F0; }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: rgba(184,134,11,0.04); }
+    .check { color: #27AE60; font-weight: 600; }
+    .cross { color: #C0392B; font-weight: 600; }
+    .link { color: #B8860B; }
+    .back-btn { background: none; border: 1px solid #E8DCC8; border-radius: 8px; padding: 8px 16px; font-size: 14px; color: #3D3426; cursor: pointer; font-family: Georgia, serif; margin-bottom: 20px; }
+    .detail-panel { background: #fff; border: 1px solid #E8DCC8; border-radius: 12px; padding: 20px; margin-bottom: 20px; max-width: 700px; margin-left: auto; margin-right: auto; }
+    .detail-panel h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    .detail-meta { font-size: 13px; color: #7A6E5D; line-height: 2; }
+    .detail-meta strong { color: #3D3426; }
+    .event-row { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #FBF7F0; font-size: 13px; align-items: center; flex-wrap: wrap; }
+    .event-time { color: #7A6E5D; min-width: 70px; }
+    .event-tag { background: #FBF7F0; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: #B8860B; font-weight: 600; }
+    .event-data { color: #7A6E5D; font-size: 12px; }
+    .msg-bubble { padding: 12px 14px; margin-bottom: 10px; border-radius: 10px; }
+    .msg-user { background: linear-gradient(135deg, rgba(184,134,11,0.08), rgba(212,168,67,0.08)); border: 1px solid rgba(212,168,67,0.2); }
+    .msg-ai { background: #FBF7F0; border: 1px solid #E8DCC8; }
+    .msg-role { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+    .msg-role.user { color: #B8860B; }
+    .msg-role.ai { color: #7A6E5D; }
+    .msg-content { font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+    .loading { text-align: center; color: #7A6E5D; padding: 40px; }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const app = document.getElementById('app');
+let state = { authed: false, password: '', loading: false, range: '7d', sessions: [], events: [], view: 'dashboard', selectedSession: null, sessionMessages: [], sessionEvents: [] };
+
+function render() {
+  if (!state.authed) return renderLogin();
+  if (state.view === 'detail') return renderDetail();
+  renderDashboard();
+}
+
+function renderLogin() {
+  app.innerHTML = '<div class="login-box"><div style="font-size:15px;letter-spacing:0.18em;color:#B8860B">▲ ONE GAME</div><div style="font-size:20px;margin-top:8px">Admin Dashboard</div><input type="password" id="pw" placeholder="Password" /><div id="login-error" class="error" style="display:none"></div><button id="login-btn" style="width:100%">Enter</button></div>';
+  document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+  document.getElementById('login-btn').addEventListener('click', login);
+}
+
+async function login() {
+  state.password = document.getElementById('pw').value;
+  state.loading = true;
+  try {
+    const res = await fetch('/api/analytics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: state.password, range: state.range }) });
+    if (!res.ok) { document.getElementById('login-error').style.display = 'block'; document.getElementById('login-error').textContent = 'Wrong password'; state.loading = false; return; }
+    const data = await res.json();
+    state.sessions = data.sessions;
+    state.events = data.events;
+    state.authed = true;
+    state.loading = false;
+    render();
+  } catch (e) { document.getElementById('login-error').style.display = 'block'; document.getElementById('login-error').textContent = 'Connection error'; state.loading = false; }
+}
+
+async function loadData() {
+  state.loading = true; render();
+  try {
+    const res = await fetch('/api/analytics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: state.password, range: state.range }) });
+    const data = await res.json();
+    state.sessions = data.sessions;
+    state.events = data.events;
+  } catch (e) { console.error(e); }
+  state.loading = false; render();
+}
+
+function computeStats() {
+  const s = state.sessions;
+  const total = s.length;
+  const reachedChat = s.filter(x => x.reached_chat).length;
+  const avgMsg = total > 0 ? Math.round(s.reduce((a, x) => a + (x.message_count || 0), 0) / total) : 0;
+  const noMsg = s.filter(x => x.message_count === 0).length;
+  const purposes = {}; s.forEach(x => { if (x.purpose) purposes[x.purpose] = (purposes[x.purpose] || 0) + 1; });
+  const screens = {}; state.events.forEach(e => { if (e.event_type === 'screen_view' && e.screen) screens[e.screen] = (screens[e.screen] || 0) + 1; });
+  const readYes = s.filter(x => x.read_book === true).length;
+  const readNo = s.filter(x => x.read_book === false).length;
+  const people = {}; s.forEach(x​​​​​​​​​​​​​​​​
