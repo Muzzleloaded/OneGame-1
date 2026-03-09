@@ -115,4 +115,61 @@ function computeStats() {
   const screens = {}; state.events.forEach(e => { if (e.event_type === 'screen_view' && e.screen) screens[e.screen] = (screens[e.screen] || 0) + 1; });
   const readYes = s.filter(x => x.read_book === true).length;
   const readNo = s.filter(x => x.read_book === false).length;
-  const people = {}; s.forEach(x​​​​​​​​​​​​​​​​
+  const people = {}; s.forEach(x => { if (x.people_count) { const k = x.people_count === 1 ? 'Solo' : x.people_count + ' people'; people[k] = (people[k] || 0) + 1; } });
+  const consented = s.filter(x => x.consent_messages).length;
+  return { total, reachedChat, avgMsg, noMsg, purposes, screens, readYes, readNo, people, consented, rate: total > 0 ? Math.round(reachedChat / total * 100) : 0 };
+}
+
+function breakdownHTML(title, data) {
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+  const max = entries.length > 0 ? entries[0][1] : 1;
+  const bars = entries.length > 0 ? entries.map(([k, v]) => '<div class="bar-row"><div class="bar-label"><span>' + k + '</span><span class="count">' + v + '</span></div><div class="bar-track"><div class="bar-fill" style="width:' + (v/max)*100 + '%"></div></div></div>').join('') : '<div class="empty">No data yet</div>';
+  return '<div class="panel"><h3>' + title + '</h3>' + bars + '</div>';
+}
+
+function renderDashboard() {
+  if (state.loading) { app.innerHTML = '<div class="loading">Loading analytics…</div>'; return; }
+  const st = computeStats();
+  const ranges = ['24h','7d','30d','all'];
+  const sessionsRows = state.sessions.slice(0, 50).map(s => {
+    const d = new Date(s.created_at);
+    const date = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const chat = s.reached_chat ? '<span class="check">✓</span>' : '<span class="cross">✗</span>';
+    const consent = s.consent_messages ? '<span class="check">✓</span>' : '<span class="cross">✗</span>';
+    return '<tr class="clickable" data-sid="' + s.id + '"><td>' + date + '</td><td>' + (s.purpose||'—') + '</td><td>' + (s.message_count||0) + '</td><td>' + chat + '</td><td>' + consent + '</td><td class="link">View →</td></tr>';
+  }).join('');
+
+  app.innerHTML = '<div class="container"><div class="header"><div class="brand">▲ ONE GAME</div><h1>Admin Dashboard</h1></div><div class="controls">' + ranges.map(r => '<button class="range-btn ' + (state.range===r?'active':'') + '" data-range="' + r + '">' + (r==='all'?'All time':'Last '+r) + '</button>').join('') + '<button class="range-btn" id="refresh-btn">↻ Refresh</button></div><div class="stats-row"><div class="stat-card"><div class="num">' + st.total + '</div><div class="label">Total Sessions</div></div><div class="stat-card"><div class="num">' + st.reachedChat + '</div><div class="label">Reached Chat</div><div class="sub">' + st.rate + '% completion</div></div><div class="stat-card"><div class="num">' + st.avgMsg + '</div><div class="label">Avg Messages</div></div><div class="stat-card"><div class="num">' + st.noMsg + '</div><div class="label">Dropped Before Chat</div><div class="sub">' + (st.total>0?Math.round(st.noMsg/st.total*100):'0') + '% of sessions</div></div><div class="stat-card"><div class="num">' + st.consented + '</div><div class="label">Consented to Share</div><div class="sub">' + (st.total>0?Math.round(st.consented/st.total*100):'0') + '%</div></div></div><div class="grid">' + breakdownHTML('Purpose Breakdown', st.purposes) + breakdownHTML('Screen Views (Funnel)', st.screens) + breakdownHTML('Group Size', st.people) + breakdownHTML('Read One Game?', {Yes: st.readYes, No: st.readNo}) + '</div><div class="panel"><h3>Recent Sessions</h3><div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Purpose</th><th>Messages</th><th>Chat?</th><th>Consent?</th><th></th></tr></thead><tbody>' + (sessionsRows || '<tr><td colspan="6" class="empty" style="text-align:center;padding:20px">No sessions yet</td></tr>') + '</tbody></table></div></div></div>';
+
+  document.querySelectorAll('.range-btn[data-range]').forEach(btn => { btn.addEventListener('click', () => { state.range = btn.dataset.range; loadData(); }); });
+  document.getElementById('refresh-btn')?.addEventListener('click', loadData);
+  document.querySelectorAll('tr.clickable').forEach(row => { row.addEventListener('click', () => loadSession(row.dataset.sid)); });
+}
+
+async function loadSession(sid) {
+  state.loading = true; state.view = 'detail'; state.selectedSession = state.sessions.find(s => s.id === sid); render();
+  try {
+    const res = await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: state.password, session_id: sid }) });
+    const data = await res.json();
+    state.sessionMessages = data.messages || [];
+    state.sessionEvents = data.events || [];
+  } catch (e) { console.error(e); }
+  state.loading = false; render();
+}
+
+function renderDetail() {
+  const s = state.selectedSession;
+  if (state.loading) { app.innerHTML = '<div class="container"><button class="back-btn" id="back-btn">← Back</button><div class="loading">Loading session…</div></div>'; document.getElementById('back-btn')?.addEventListener('click', () => { state.view = 'dashboard'; render(); }); return; }
+  const eventsHTML = state.sessionEvents.length > 0 ? state.sessionEvents.map(e => { const t = new Date(e.created_at).toLocaleTimeString(); const d = Object.keys(e.event_data||{}).length > 0 ? '<span class="event-data">' + JSON.stringify(e.event_data) + '</span>' : ''; return '<div class="event-row"><span class="event-time">' + t + '</span><span class="event-tag">' + e.event_type + '</span><span>' + (e.screen||'') + '</span>' + d + '</div>'; }).join('') : '<div class="empty">No events recorded</div>';
+  const msgsHTML = state.sessionMessages.length > 0 ? state.sessionMessages.map(m => '<div class="msg-bubble ' + (m.role==='user'?'msg-user':'msg-ai') + '"><div class="msg-role ' + (m.role==='user'?'user':'ai') + '">' + (m.role==='user'?'User':'Facilitator') + '</div><div class="msg-content">' + escapeHTML(m.content) + '</div></div>').join('') : '<div class="empty">No messages recorded (user may not have consented)</div>';
+
+  app.innerHTML = '<div class="container"><button class="back-btn" id="back-btn">← Back to dashboard</button><div class="detail-panel"><h3>Session Details</h3><div class="detail-meta"><div><strong>Date:</strong> ' + new Date(s.created_at).toLocaleString() + '</div><div><strong>People:</strong> ' + (s.people_count||'—') + '</div><div><strong>Purpose:</strong> ' + (s.purpose||'—') + '</div><div><strong>Context:</strong> ' + (s.context||'—') + '</div><div><strong>Read book:</strong> ' + (s.read_book===true?'Yes':s.read_book===false?'No':'—') + '</div><div><strong>Messages:</strong> ' + (s.message_count||0) + '</div><div><strong>Consent:</strong> ' + (s.consent_messages?'Yes':'No') + '</div></div></div><div class="detail-panel"><h3>Event Timeline</h3>' + eventsHTML + '</div><div class="detail-panel"><h3>Conversation</h3>' + msgsHTML + '</div></div>';
+  document.getElementById('back-btn').addEventListener('click', () => { state.view = 'dashboard'; render(); });
+}
+
+function escapeHTML(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+render();
+</script>
+</body>
+</html>
