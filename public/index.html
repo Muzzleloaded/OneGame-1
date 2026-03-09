@@ -15,21 +15,21 @@
 /* Red flash overlay for Force */
 .force-flash {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(200, 30, 30, 0.35);
+  background: rgba(200, 20, 20, 0.45);
   z-index: 9999; pointer-events: none;
-  animation: flashFade 0.6s ease-out forwards;
+  animation: flashFade 0.7s ease-out forwards;
 }
-@keyframes flashFade { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes flashFade { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 0; } }
 
-/* Shake animation */
+/* Shake animation — vertical rumble, no side-to-side */
 .shake { animation: shakeIt 0.5s ease-in-out; }
 @keyframes shakeIt {
-  0%, 100% { transform: translateX(0); }
-  15% { transform: translateX(-6px); }
-  30% { transform: translateX(6px); }
-  45% { transform: translateX(-4px); }
-  60% { transform: translateX(4px); }
-  75% { transform: translateX(-2px); }
+  0%, 100% { transform: translateY(0); }
+  15% { transform: translateY(-4px); }
+  30% { transform: translateY(3px); }
+  45% { transform: translateY(-3px); }
+  60% { transform: translateY(2px); }
+  75% { transform: translateY(-1px); }
 }
 
 /* Rewind pulse for Return to Step 1 */
@@ -153,10 +153,10 @@ const styles = {
     zIndex: 10,
   },
   headerTitle: {
-    fontSize: 15,
-    letterSpacing: "0.18em",
+    fontSize: 19,
+    letterSpacing: "0.22em",
     color: COLORS.gold,
-    fontWeight: 400,
+    fontWeight: 600,
     margin: 0,
     textTransform: "uppercase",
   },
@@ -533,6 +533,8 @@ function App() {
   const [pendingAgreement, setPendingAgreement] = useState(null);
   const [agreementInput, setAgreementInput] = useState("");
   const [dashboardEvents, setDashboardEvents] = useState([]);
+  const [pendingStepChange, setPendingStepChange] = useState(null);
+  const [stepChangeReason, setStepChangeReason] = useState("");
   const chatRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -559,12 +561,36 @@ function App() {
     return events;
   };
 
+  // ─── ONE-LINER RESPONSES ───
+  const forceOneLiners = [
+    "Whoa — force detected. Let's shine a light on that.",
+    "That's force. Let's name it and move through it.",
+    "Force just showed up. That's a feature, not a bug — we see it now.",
+    "Someone felt that was force. Let's slow down here.",
+  ];
+  const returnOneLiners = [
+    "Back to Step 1. Listening is never a step backward.",
+    "Let's hear each other again. This is the mature move.",
+    "Step 1 again — sometimes the best way forward is to go back.",
+    "Good call. Let's make sure everyone feels heard.",
+  ];
+  const agreeOneLiners = [
+    "Agreement stacked. Let's keep going!",
+    "Another one on the pile. Sweet.",
+    "Agreement stacked — yee ha!",
+    "That's a coin. Nice work.",
+    "Stacked. The pile is growing.",
+  ];
+  const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
   // ─── EFFECT TRIGGERS ───
   const triggerForce = () => {
     setShowForceFlash(true);
     setShaking(true);
-    setTimeout(() => setShowForceFlash(false), 600);
+    setTimeout(() => setShowForceFlash(false), 700);
     setTimeout(() => setShaking(false), 500);
+    const oneLiner = pickRandom(forceOneLiners);
+    setMessages(prev => [...prev, { role: "assistant", content: oneLiner }]);
     addDashboardEvent("[Dashboard: Force was called at Step " + currentStep + ". Someone felt force was being used.]");
     ogTrack('track_event', { event_type: 'response_force', screen: 'chat', event_data: { step: currentStep } });
   };
@@ -574,6 +600,8 @@ function App() {
     setShowRewindFlash(true);
     setCurrentStep(1);
     setTimeout(() => setShowRewindFlash(false), 800);
+    const oneLiner = pickRandom(returnOneLiners);
+    setMessages(prev => [...prev, { role: "assistant", content: oneLiner }]);
     addDashboardEvent("[Dashboard: Return to Step 1 was pressed from Step " + fromStep + ". The group is going back to listening.]");
     ogTrack('track_event', { event_type: 'response_return', screen: 'chat', event_data: { from_step: fromStep } });
   };
@@ -588,15 +616,28 @@ function App() {
     if (typeof confetti === "function") {
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ["#B8860B", "#D4A843", "#FFD700", "#FFF8E7"] });
     }
+    const oneLiner = pickRandom(agreeOneLiners);
+    setMessages(prev => [...prev, { role: "assistant", content: oneLiner }]);
     addDashboardEvent("[Dashboard: Agreement reached at Step " + currentStep + ": \"" + label + "\". Total agreements: " + (agreements.length + 1) + ".]");
     ogTrack('track_event', { event_type: 'response_agreement', screen: 'chat', event_data: { step: currentStep, label: label, agreement_count: agreements.length + 1 } });
   };
 
   const suggestStep = (stepNum) => {
     if (stepNum === currentStep) return;
+    setPendingStepChange(stepNum);
+    setStepChangeReason("");
+  };
+
+  const confirmStepChange = () => {
+    const stepNum = pendingStepChange;
+    const reason = stepChangeReason.trim();
     setCurrentStep(stepNum);
-    addDashboardEvent("[Dashboard: The conversation moved to Step " + stepNum + " (" + stepNames[stepNum].split(" — ")[0] + "). Guide the conversation accordingly.]");
-    ogTrack('track_event', { event_type: 'step_changed', screen: 'chat', event_data: { new_step: stepNum } });
+    setPendingStepChange(null);
+    setStepChangeReason("");
+    const reasonText = reason ? " Reason: " + reason : "";
+    addDashboardEvent("[Dashboard: The conversation moved to Step " + stepNum + " (" + stepNames[stepNum].split(" — ")[0] + ")." + reasonText + " Guide the conversation accordingly.]");
+    setMessages(prev => [...prev, { role: "assistant", content: "Moving to Step " + stepNum + ": " + stepNames[stepNum].split(" — ")[0] + "." + (reason ? " " + reason : " Let's see where this takes us.") }]);
+    ogTrack('track_event', { event_type: 'step_changed', screen: 'chat', event_data: { new_step: stepNum, reason: reason } });
   };
 
   const stepNames = {
@@ -1268,7 +1309,11 @@ function App() {
     const visibleMessages = messages.filter((m) => m.role !== "system_hidden");
     return (
       <div style={styles.container}>
-        <div style={styles.inner} className={shaking ? "shake" : ""}>
+        {/* ─── FLASH OVERLAYS (outside inner to avoid layout issues) ─── */}
+        {showForceFlash && <div className="force-flash" />}
+        {showRewindFlash && <div className="rewind-flash" />}
+
+        <div style={{ ...styles.inner, overflow: "hidden" }} className={shaking ? "shake" : ""}>
           {renderHeader()}
 
           {/* ─── TOP DASHBOARD (sticky) ─── */}
@@ -1283,7 +1328,7 @@ function App() {
             top: 76,
             zIndex: 9,
           }}>
-            {/* Three Responses: Return | Force (small) | Agree */}
+            {/* Three Responses: ↩ Return | ➤ Force (small) | ↑ Agree */}
             <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
               <button onClick={triggerReturnStep1} style={{
                 flex: 2, padding: "9px 6px", border: "1px solid " + COLORS.gold, borderRadius: 8,
@@ -1291,7 +1336,7 @@ function App() {
                 fontFamily: "'Georgia', serif", cursor: "pointer", fontWeight: 600,
                 transition: "all 0.15s",
               }}>
-                &#8634; Step 1
+                &#8617; Again
               </button>
               <button onClick={triggerForce} style={{
                 flex: 1, padding: "9px 4px", border: "1px solid #C0392B", borderRadius: 8,
@@ -1299,7 +1344,7 @@ function App() {
                 fontFamily: "'Georgia', serif", cursor: "pointer", fontWeight: 600,
                 transition: "all 0.15s",
               }}>
-                Force
+                &#10148; Force
               </button>
               <button onClick={() => setPendingAgreement(true)} style={{
                 flex: 2, padding: "9px 6px", border: "1px solid #27AE60", borderRadius: 8,
@@ -1307,7 +1352,7 @@ function App() {
                 fontFamily: "'Georgia', serif", cursor: "pointer", fontWeight: 600,
                 transition: "all 0.15s",
               }}>
-                &#10003; Agree
+                &#8593; Agree
               </button>
             </div>
 
@@ -1339,6 +1384,45 @@ function App() {
                   Confirm
                 </button>
                 <button onClick={() => { setPendingAgreement(null); setAgreementInput(""); }} style={{
+                  padding: "6px 8px", background: "transparent", color: COLORS.textLight,
+                  border: "none", fontSize: 14, cursor: "pointer",
+                }}>
+                  &#10005;
+                </button>
+              </div>
+            )}
+
+            {/* Pending step change with reason */}
+            {pendingStepChange && (
+              <div style={{
+                display: "flex", gap: 6, alignItems: "center",
+                background: COLORS.white,
+                border: "1px solid " + COLORS.gold,
+                borderRadius: 8,
+                padding: "8px 10px",
+              }}>
+                <span style={{ fontSize: 12, color: COLORS.gold, fontWeight: 600, whiteSpace: "nowrap" }}>
+                  {"Step " + pendingStepChange + ":"}
+                </span>
+                <input
+                  value={stepChangeReason}
+                  onChange={(e) => setStepChangeReason(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") confirmStepChange(); }}
+                  placeholder="Why? (optional)"
+                  autoFocus
+                  style={{
+                    flex: 1, border: "none", outline: "none", fontSize: 13,
+                    fontFamily: "'Georgia', serif", color: COLORS.text, background: "transparent",
+                  }}
+                />
+                <button onClick={confirmStepChange} style={{
+                  padding: "6px 14px", background: COLORS.gold, color: COLORS.white,
+                  border: "none", borderRadius: 6, fontSize: 12, fontFamily: "'Georgia', serif",
+                  cursor: "pointer", fontWeight: 600,
+                }}>
+                  Go
+                </button>
+                <button onClick={() => { setPendingStepChange(null); setStepChangeReason(""); }} style={{
                   padding: "6px 8px", background: "transparent", color: COLORS.textLight,
                   border: "none", fontSize: 14, cursor: "pointer",
                 }}>
@@ -1421,147 +1505,172 @@ function App() {
             )}
           </div>
 
-          {/* ─── FLASH OVERLAYS ─── */}
-          {showForceFlash && <div className="force-flash" />}
-          {showRewindFlash && <div className="rewind-flash" />}
-
-          <div ref={chatRef} style={styles.chatArea}>
-            {visibleMessages.map((m, i) => {
-              if (m.role === "jase_note") {
+          {/* ─── CHAT FRAME ─── */}
+          <div style={{
+            flex: 1,
+            margin: "12px 12px 0",
+            background: COLORS.white,
+            border: "1px solid " + COLORS.sand,
+            borderRadius: "16px 16px 0 0",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            boxShadow: "0 2px 12px rgba(184,134,11,0.06)",
+          }}>
+            <div ref={chatRef} style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "18px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}>
+              {visibleMessages.map((m, i) => {
+                if (m.role === "jase_note") {
+                  return (
+                    <div key={i} style={styles.jaseNote}>
+                      <div style={styles.jaseNoteHeader}>A note from Jase</div>
+                      {m.content}
+                      {m.milestone === 20 && (
+                        <div style={{ marginTop: 14 }}>
+                          <a href="https://lovetopia.substack.com/" target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 20px", background: COLORS.gold, color: COLORS.white, borderRadius: 8, fontFamily: "'Georgia', serif", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+                            Subscribe at lovetopia.substack.com
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
                 return (
-                  <div key={i} style={styles.jaseNote}>
-                    <div style={styles.jaseNoteHeader}>A note from Jase</div>
+                  <div key={i} style={m.role === "user" ? styles.userBubble : styles.aiBubble}>
                     {m.content}
-                    {m.milestone === 20 && (
-                      <div style={{ marginTop: 14 }}>
-                        <a href="https://lovetopia.substack.com/" target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 20px", background: COLORS.gold, color: COLORS.white, borderRadius: 8, fontFamily: "'Georgia', serif", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-                          Subscribe at lovetopia.substack.com
-                        </a>
-                      </div>
-                    )}
                   </div>
                 );
-              }
-              return (
-                <div key={i} style={m.role === "user" ? styles.userBubble : styles.aiBubble}>
-                  {m.content}
-                </div>
-              );
-            })}
-            {loading && <div style={styles.listening}>Listening…</div>}
+              })}
+              {loading && <div style={styles.listening}>Listening…</div>}
 
-            {showEndSession && (
-              <div style={styles.endSessionPanel}>
-                <div style={styles.privacyNote}>
-                  This conversation is not saved and is not linked to any of your information. Once you close this page, all record of it is gone.
-                </div>
-
-                {!agreementDoc && !generatingDoc && (
-                  <React.Fragment>
-                    <HoverButton
-                      style={{ ...styles.btn, marginTop: 0, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center" }}
-                      hoverStyle={{ background: COLORS.goldLight }}
-                      onClick={generateAgreementDoc}
-                    >
-                      Summarise my agreements
-                    </HoverButton>
-                    <HoverButton
-                      style={{ ...styles.btn, textAlign: "center" }}
-                      hoverStyle={styles.btnHover}
-                      onClick={downloadChat}
-                    >
-                      Download this conversation
-                    </HoverButton>
-                    <HoverButton
-                      style={{ ...styles.btn, textAlign: "center" }}
-                      hoverStyle={styles.btnHover}
-                      onClick={() => setShowEndSession(false)}
-                    >
-                      Keep talking — I'm not done yet
-                    </HoverButton>
-                  </React.Fragment>
-                )}
-
-                {generatingDoc && (
-                  <p style={{ ...styles.text, fontSize: 14, fontStyle: "italic", color: COLORS.textLight, textAlign: "center", marginTop: 12 }}>
-                    Building your agreement document…
-                  </p>
-                )}
-
-                {agreementDoc && (
-                  <div>
-                    <p style={{ ...styles.text, fontSize: 14, fontWeight: 600, marginTop: 4 }}>
-                      Your Agreement Document
-                    </p>
-                    <p style={{ fontSize: 13, color: COLORS.textLight, fontStyle: "italic", marginTop: 4, lineHeight: 1.5 }}>
-                      Copy this and paste it into a new session anytime to pick up where you left off.
-                    </p>
-                    <div style={styles.agreementDoc}>{agreementDoc}</div>
-                    <div style={{ marginTop: 12 }}>
-                      <button
-                        style={{ ...styles.copyBtn, background: copied ? COLORS.goldLight : COLORS.gold }}
-                        onClick={copyAgreementDoc}
-                      >
-                        {copied ? "Copied!" : "Copy to clipboard"}
-                      </button>
-                      <button style={styles.copyBtn} onClick={downloadChat}>
-                        Download full chat
-                      </button>
-                    </div>
-                    <HoverButton
-                      style={{ ...styles.btn, marginTop: 14, textAlign: "center" }}
-                      hoverStyle={styles.btnHover}
-                      onClick={() => setShowEndSession(false)}
-                    >
-                      Keep talking — I'm not done yet
-                    </HoverButton>
+              {showEndSession && (
+                <div style={styles.endSessionPanel}>
+                  <div style={styles.privacyNote}>
+                    This conversation is not saved and is not linked to any of your information. Once you close this page, all record of it is gone.
                   </div>
-                )}
-              </div>
-            )}
-          </div>
 
-          <div style={styles.inputBar}>
-            {!showEndSession && (
+                  {!agreementDoc && !generatingDoc && (
+                    <React.Fragment>
+                      <HoverButton
+                        style={{ ...styles.btn, marginTop: 0, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center" }}
+                        hoverStyle={{ background: COLORS.goldLight }}
+                        onClick={generateAgreementDoc}
+                      >
+                        Summarise my agreements
+                      </HoverButton>
+                      <HoverButton
+                        style={{ ...styles.btn, textAlign: "center" }}
+                        hoverStyle={styles.btnHover}
+                        onClick={downloadChat}
+                      >
+                        Download this conversation
+                      </HoverButton>
+                      <HoverButton
+                        style={{ ...styles.btn, textAlign: "center" }}
+                        hoverStyle={styles.btnHover}
+                        onClick={() => setShowEndSession(false)}
+                      >
+                        Keep talking — I'm not done yet
+                      </HoverButton>
+                    </React.Fragment>
+                  )}
+
+                  {generatingDoc && (
+                    <p style={{ ...styles.text, fontSize: 14, fontStyle: "italic", color: COLORS.textLight, textAlign: "center", marginTop: 12 }}>
+                      Building your agreement document…
+                    </p>
+                  )}
+
+                  {agreementDoc && (
+                    <div>
+                      <p style={{ ...styles.text, fontSize: 14, fontWeight: 600, marginTop: 4 }}>
+                        Your Agreement Document
+                      </p>
+                      <p style={{ fontSize: 13, color: COLORS.textLight, fontStyle: "italic", marginTop: 4, lineHeight: 1.5 }}>
+                        Copy this and paste it into a new session anytime to pick up where you left off.
+                      </p>
+                      <div style={styles.agreementDoc}>{agreementDoc}</div>
+                      <div style={{ marginTop: 12 }}>
+                        <button
+                          style={{ ...styles.copyBtn, background: copied ? COLORS.goldLight : COLORS.gold }}
+                          onClick={copyAgreementDoc}
+                        >
+                          {copied ? "Copied!" : "Copy to clipboard"}
+                        </button>
+                        <button style={styles.copyBtn} onClick={downloadChat}>
+                          Download full chat
+                        </button>
+                      </div>
+                      <HoverButton
+                        style={{ ...styles.btn, marginTop: 14, textAlign: "center" }}
+                        hoverStyle={styles.btnHover}
+                        onClick={() => setShowEndSession(false)}
+                      >
+                        Keep talking — I'm not done yet
+                      </HoverButton>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ─── STICKY INPUT BAR (inside frame) ─── */}
+            <div style={{
+              padding: "10px 12px 14px",
+              borderTop: "1px solid " + COLORS.sand,
+              background: COLORS.white,
+              display: "flex",
+              gap: 8,
+              alignItems: "flex-end",
+              borderRadius: "0 0 0 0",
+            }}>
+              {!showEndSession && (
+                <button
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: COLORS.textLight,
+                    fontSize: 20,
+                    cursor: "pointer",
+                    padding: "8px",
+                    borderRadius: 8,
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                  onClick={() => {
+                    ogTrack('track_event', { event_type: 'end_session_opened', screen: 'chat' });
+                    setShowEndSession(true);
+                  }}
+                  title="End session"
+                >
+                  &#9632;
+                </button>
+              )}
+              <textarea
+                ref={inputRef}
+                style={styles.chatInput}
+                rows={1}
+                placeholder={isMulti ? "Tag with your letter (A, B…)…" : "Share what's on your mind…"}
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={(e) => (e.target.style.borderColor = COLORS.gold)}
+                onBlur={(e) => (e.target.style.borderColor = COLORS.sand)}
+              />
               <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: COLORS.textLight,
-                  fontSize: 20,
-                  cursor: "pointer",
-                  padding: "8px",
-                  borderRadius: 8,
-                  lineHeight: 1,
-                  flexShrink: 0,
-                }}
-                onClick={() => {
-                  ogTrack('track_event', { event_type: 'end_session_opened', screen: 'chat' });
-                  setShowEndSession(true);
-                }}
-                title="End session"
+                style={{ ...styles.sendBtn, opacity: userInput.trim() && !loading ? 1 : 0.5 }}
+                onClick={sendMessage}
+                disabled={!userInput.trim() || loading}
               >
-                &#9632;
+                Send
               </button>
-            )}
-            <textarea
-              ref={inputRef}
-              style={styles.chatInput}
-              rows={1}
-              placeholder={isMulti ? "Tag with your letter (A, B…)…" : "Share what's on your mind…"}
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={(e) => (e.target.style.borderColor = COLORS.gold)}
-              onBlur={(e) => (e.target.style.borderColor = COLORS.sand)}
-            />
-            <button
-              style={{ ...styles.sendBtn, opacity: userInput.trim() && !loading ? 1 : 0.5 }}
-              onClick={sendMessage}
-              disabled={!userInput.trim() || loading}
-            >
-              Send
-            </button>
+            </div>
           </div>
         </div>
       </div>
