@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -16,6 +17,51 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+
+  <!-- ========== TRACKING CODE ========== -->
+
+  <script>
+    function generateSessionId() {
+      return 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    var OG_TRACK = {
+      sessionId: generateSessionId(),
+      consentMessages: false,
+      names: [],
+    };
+
+    function ogTrack(action, data) {
+      try {
+        fetch('/api/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: action,
+            data: Object.assign({ session_id: OG_TRACK.sessionId }, data),
+          }),
+        }).catch(function() {});
+      } catch (e) {}
+    }
+
+    function anonymizeText(text, names) {
+      if (!text || !names || names.length === 0) return text;
+      var result = text;
+      var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      names.forEach(function(name, i) {
+        if (name && name.trim()) {
+          var regex = new RegExp(name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          result = result.replace(regex, 'Person ' + letters[i]);
+        }
+      });
+      return result;
+    }
+
+    ogTrack('create_session', { consent_messages: false });
+  </script>
+
+  <!-- ========== END TRACKING CODE ========== -->
+
   <script type="text/babel">
 const { useState, useRef, useEffect, useCallback } = React;
 
@@ -430,6 +476,7 @@ function App() {
   const [agreementDoc, setAgreementDoc] = useState("");
   const [generatingDoc, setGeneratingDoc] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [consent, setConsent] = useState(false);
   const chatRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -507,6 +554,18 @@ function App() {
     setScreen("chat");
     setLoading(true);
 
+    // ─── TRACKING ───
+    OG_TRACK.names = names.filter(function(n) { return n.trim(); });
+    ogTrack('update_session', {
+      people_count: peopleCount,
+      purpose: purpose,
+      context: context || null,
+      read_book: bookAnswer,
+      reached_chat: true,
+      consent_messages: consent,
+    });
+    ogTrack('track_event', { event_type: 'chat_started', screen: 'chat', event_data: { people_count: peopleCount, purpose: purpose, context: context, read_book: bookAnswer } });
+
     const opening = buildOpeningInstruction();
     const firstMsg = {
       role: "user",
@@ -514,6 +573,12 @@ function App() {
     };
 
     const reply = await callAPI([firstMsg]);
+
+    // ─── TRACKING: log first AI message if consented ───
+    if (OG_TRACK.consentMessages) {
+      ogTrack('track_message', { role: 'assistant', content: anonymizeText(reply, OG_TRACK.names), message_index: 0 });
+    }
+
     setMessages([
       { role: "system_hidden", content: firstMsg.content },
       { role: "assistant", content: reply },
@@ -529,6 +594,13 @@ function App() {
     const newMessages = [...messages, { role: "user", content: text }];
     setMessages(newMessages);
     setLoading(true);
+
+    // ─── TRACKING: log user message ───
+    const visibleCount = newMessages.filter(function(m) { return m.role === 'user' || m.role === 'assistant'; }).length;
+    if (OG_TRACK.consentMessages) {
+      ogTrack('track_message', { role: 'user', content: anonymizeText(text, OG_TRACK.names), message_index: visibleCount - 1 });
+    }
+    ogTrack('update_session', { message_count: visibleCount });
 
     const apiMessages = [];
     let firstUser = true;
@@ -554,7 +626,14 @@ function App() {
 
     const reply = await callAPI(apiMessages);
     const updatedMessages = [...newMessages, { role: "assistant", content: reply }];
-    
+
+    // ─── TRACKING: log AI reply ───
+    const newVisibleCount = updatedMessages.filter(function(m) { return m.role === 'user' || m.role === 'assistant'; }).length;
+    if (OG_TRACK.consentMessages) {
+      ogTrack('track_message', { role: 'assistant', content: anonymizeText(reply, OG_TRACK.names), message_index: newVisibleCount - 1 });
+    }
+    ogTrack('update_session', { message_count: newVisibleCount });
+
     // Count user messages for milestones
     const userMsgCount = updatedMessages.filter((m) => m.role === "user").length;
     const alreadyShown = updatedMessages.filter((m) => m.role === "jase_note").map((m) => m.milestone);
@@ -688,7 +767,10 @@ function App() {
                 <HoverButton
                   style={{ ...styles.btn, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center" }}
                   hoverStyle={{ background: COLORS.goldLight }}
-                  onClick={() => setScreen("welcome")}
+                  onClick={() => {
+                    ogTrack('track_event', { event_type: 'screen_view', screen: 'welcome' });
+                    setScreen("welcome");
+                  }}
                 >
                   I'm ready
                 </HoverButton>
@@ -729,11 +811,30 @@ function App() {
                 <br /><br />
                 You can copy and paste from the chat at any time. Before the session closes, you'll be given the option to generate a summary of your agreements and download the conversation. You can paste that summary into a new session if you want to pick up where you left off.
               </div>
+              <div style={{ marginTop: 16, display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <input
+                  type="checkbox"
+                  id="consent"
+                  checked={consent}
+                  onChange={(e) => {
+                    setConsent(e.target.checked);
+                    OG_TRACK.consentMessages = e.target.checked;
+                    ogTrack('update_session', { consent_messages: e.target.checked });
+                  }}
+                  style={{ marginTop: 3, accentColor: COLORS.gold, cursor: "pointer" }}
+                />
+                <label htmlFor="consent" style={{ fontSize: 13, color: COLORS.textLight, lineHeight: 1.5, cursor: "pointer" }}>
+                  Help improve this tool by sharing your anonymised conversation data
+                </label>
+              </div>
               <div style={{ marginTop: 28 }}>
                 <HoverButton
                   style={{ ...styles.btn, background: COLORS.gold, color: COLORS.white, fontWeight: 600, textAlign: "center" }}
                   hoverStyle={{ background: COLORS.goldLight }}
-                  onClick={() => setScreen("people")}
+                  onClick={() => {
+                    ogTrack('track_event', { event_type: 'screen_view', screen: 'people' });
+                    setScreen("people");
+                  }}
                 >
                   Let's begin
                 </HoverButton>
@@ -768,6 +869,8 @@ function App() {
                       setPeopleCount(opt.count);
                       setNames(Array(opt.count === 1 ? 1 : opt.count).fill(""));
                       setExtraInputs(opt.count === 4 ? 4 : opt.count);
+                      ogTrack('track_event', { event_type: 'people_count', screen: 'people', event_data: { count: opt.count } });
+                      ogTrack('track_event', { event_type: 'screen_view', screen: 'names' });
                       setScreen("names");
                     }}
                   >
@@ -830,7 +933,9 @@ function App() {
                   hoverStyle={{ background: COLORS.goldLight }}
                   onClick={() => {
                     if (!names.some((n) => n.trim())) return;
-                    setScreen(isSolo ? "purpose_solo" : "purpose_multi");
+                    const nextScreen = isSolo ? "purpose_solo" : "purpose_multi";
+                    ogTrack('track_event', { event_type: 'screen_view', screen: nextScreen });
+                    setScreen(nextScreen);
                   }}
                 >
                   Continue
@@ -868,11 +973,15 @@ function App() {
                     hoverStyle={opt.special ? styles.btnSpecialHover : styles.btnHover}
                     onClick={() => {
                       setPurpose(opt.key);
+                      ogTrack('track_event', { event_type: 'purpose_selected', screen: 'purpose_solo', event_data: { purpose: opt.key } });
                       if (opt.key === "continue") {
+                        ogTrack('track_event', { event_type: 'screen_view', screen: 'paste_doc' });
                         setScreen("paste_doc");
                       } else if (opt.key === "curious" || opt.key === "evolve") {
+                        ogTrack('track_event', { event_type: 'screen_view', screen: 'book' });
                         setScreen("book");
                       } else {
+                        ogTrack('track_event', { event_type: 'screen_view', screen: 'context' });
                         setScreen("context");
                       }
                     }}
@@ -911,9 +1020,12 @@ function App() {
                     hoverStyle={styles.btnHover}
                     onClick={() => {
                       setPurpose(opt.key);
+                      ogTrack('track_event', { event_type: 'purpose_selected', screen: 'purpose_multi', event_data: { purpose: opt.key } });
                       if (opt.key === "continue") {
+                        ogTrack('track_event', { event_type: 'screen_view', screen: 'paste_doc' });
                         setScreen("paste_doc");
                       } else {
+                        ogTrack('track_event', { event_type: 'screen_view', screen: 'book' });
                         setScreen("book");
                       }
                     }}
@@ -954,6 +1066,7 @@ function App() {
                   hoverStyle={{ background: COLORS.goldLight }}
                   onClick={() => {
                     if (!previousDoc.trim()) return;
+                    ogTrack('track_event', { event_type: 'screen_view', screen: 'book' });
                     setScreen("book");
                   }}
                 >
@@ -985,6 +1098,8 @@ function App() {
                     hoverStyle={styles.btnHover}
                     onClick={() => {
                       setContext(opt);
+                      ogTrack('track_event', { event_type: 'context_selected', screen: 'context', event_data: { context: opt } });
+                      ogTrack('track_event', { event_type: 'screen_view', screen: 'book' });
                       setScreen("book");
                     }}
                   >
@@ -1008,10 +1123,16 @@ function App() {
             <div style={styles.card}>
               <p style={styles.text}>Have you read One Game?</p>
               <div style={{ marginTop: 20 }}>
-                <HoverButton style={styles.btn} hoverStyle={styles.btnHover} onClick={() => startChat(true)}>
+                <HoverButton style={styles.btn} hoverStyle={styles.btnHover} onClick={() => {
+                  ogTrack('track_event', { event_type: 'book_answer', screen: 'book', event_data: { read: true } });
+                  startChat(true);
+                }}>
                   Yes
                 </HoverButton>
-                <HoverButton style={styles.btn} hoverStyle={styles.btnHover} onClick={() => startChat(false)}>
+                <HoverButton style={styles.btn} hoverStyle={styles.btnHover} onClick={() => {
+                  ogTrack('track_event', { event_type: 'book_answer', screen: 'book', event_data: { read: false } });
+                  startChat(false);
+                }}>
                   Not yet
                 </HoverButton>
               </div>
@@ -1138,7 +1259,10 @@ function App() {
                   lineHeight: 1,
                   flexShrink: 0,
                 }}
-                onClick={() => setShowEndSession(true)}
+                onClick={() => {
+                  ogTrack('track_event', { event_type: 'end_session_opened', screen: 'chat' });
+                  setShowEndSession(true);
+                }}
                 title="End session"
               >
                 &#9632;
@@ -1173,5 +1297,6 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
+
 </body>
 </html>
