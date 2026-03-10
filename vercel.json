@@ -4,16 +4,6 @@
     { "source": "/api/track", "destination": "/api/track" },
     { "source": "/api/analytics", "destination": "/api/analytics" },
     { "source": "/api/messages", "destination": "/api/messages" },
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
-{
-  "rewrites": [
-    { "source": "/api/chat", "destination": "/api/chat" },
-    { "source": "/api/track", "destination": "/api/track" },
-    { "source": "/api/analytics", "destination": "/api/analytics" },
-    { "source": "/api/messages", "destination": "/api/messages" },
     { "source": "/api/kit-test", "destination": "/api/kit-test" },
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/(.*)", "destination": "/index.html" }
