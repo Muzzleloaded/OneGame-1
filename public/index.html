@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -11,50 +10,47 @@
     body { font-family: 'Georgia', 'Times New Roman', serif; background: #FEFCF8; }
     #root { min-height: 100vh; }
 
-```
-/* Red flash overlay for Force */
-.force-flash {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(200, 20, 20, 0.45);
-  z-index: 9999; pointer-events: none;
-  animation: flashFade 0.7s ease-out forwards;
-}
-@keyframes flashFade { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 0; } }
+    /* Red flash overlay for Force */
+    .force-flash {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(200, 20, 20, 0.45);
+      z-index: 9999; pointer-events: none;
+      animation: flashFade 0.7s ease-out forwards;
+    }
+    @keyframes flashFade { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 0; } }
 
-/* Shake animation — vertical rumble, no side-to-side */
-.shake { animation: shakeIt 0.5s ease-in-out; }
-@keyframes shakeIt {
-  0%, 100% { transform: translateY(0); }
-  15% { transform: translateY(-4px); }
-  30% { transform: translateY(3px); }
-  45% { transform: translateY(-3px); }
-  60% { transform: translateY(2px); }
-  75% { transform: translateY(-1px); }
-}
+    /* Shake animation — vertical rumble, no side-to-side */
+    .shake { animation: shakeIt 0.5s ease-in-out; }
+    @keyframes shakeIt {
+      0%, 100% { transform: translateY(0); }
+      15% { transform: translateY(-4px); }
+      30% { transform: translateY(3px); }
+      45% { transform: translateY(-3px); }
+      60% { transform: translateY(2px); }
+      75% { transform: translateY(-1px); }
+    }
 
-/* Rewind pulse for Return to Step 1 */
-.rewind-flash {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(184, 134, 11, 0.15);
-  z-index: 9999; pointer-events: none;
-  animation: rewindFade 0.8s ease-out forwards;
-}
-@keyframes rewindFade { 0% { opacity: 1; } 100% { opacity: 0; } }
+    /* Rewind pulse for Return to Step 1 */
+    .rewind-flash {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(184, 134, 11, 0.15);
+      z-index: 9999; pointer-events: none;
+      animation: rewindFade 0.8s ease-out forwards;
+    }
+    @keyframes rewindFade { 0% { opacity: 1; } 100% { opacity: 0; } }
 
-/* Coin bounce and jingle */
-.coin-bounce {
-  animation: coinDrop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes coinDrop {
-  0% { transform: translateY(-30px) scale(0.3) rotate(-20deg); opacity: 0; }
-  30% { transform: translateY(2px) scale(1.15) rotate(8deg); opacity: 1; }
-  45% { transform: translateY(-6px) scale(0.95) rotate(-5deg); }
-  60% { transform: translateY(1px) scale(1.05) rotate(3deg); }
-  75% { transform: translateY(-2px) scale(0.98) rotate(-1deg); }
-  100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
-}
-```
-
+    /* Coin bounce and jingle */
+    .coin-bounce {
+      animation: coinDrop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes coinDrop {
+      0% { transform: translateY(-30px) scale(0.3) rotate(-20deg); opacity: 0; }
+      30% { transform: translateY(2px) scale(1.15) rotate(8deg); opacity: 1; }
+      45% { transform: translateY(-6px) scale(0.95) rotate(-5deg); }
+      60% { transform: translateY(1px) scale(1.05) rotate(3deg); }
+      75% { transform: translateY(-2px) scale(0.98) rotate(-1deg); }
+      100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -65,7 +61,6 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <!-- ========== TRACKING CODE ========== -->
-
   <script>
     function generateSessionId() {
       return 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -105,7 +100,6 @@
 
     ogTrack('create_session', { consent_messages: false });
   </script>
-
   <!-- ========== END TRACKING CODE ========== -->
 
   <script type="text/babel">
@@ -535,6 +529,8 @@ function App() {
   const [dashboardEvents, setDashboardEvents] = useState([]);
   const [pendingStepChange, setPendingStepChange] = useState(null);
   const [stepChangeReason, setStepChangeReason] = useState("");
+  const [subscribeEmail, setSubscribeEmail] = useState("");
+  const [subscribeStatus, setSubscribeStatus] = useState(null);
   const chatRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -1287,17 +1283,151 @@ function App() {
               <div style={{ marginTop: 20 }}>
                 <HoverButton style={styles.btn} hoverStyle={styles.btnHover} onClick={() => {
                   ogTrack('track_event', { event_type: 'book_answer', screen: 'book', event_data: { read: true } });
-                  startChat(true);
+                  setReadBook(true);
+                  setScreen("subscribe");
                 }}>
                   Yes
                 </HoverButton>
                 <HoverButton style={styles.btn} hoverStyle={styles.btnHover} onClick={() => {
                   ogTrack('track_event', { event_type: 'book_answer', screen: 'book', event_data: { read: false } });
-                  startChat(false);
+                  setReadBook(false);
+                  setScreen("subscribe");
                 }}>
                   Not yet
                 </HoverButton>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "subscribe") {
+    const handleSubscribe = async () => {
+      if (!subscribeEmail.trim()) return;
+      setSubscribeStatus("sending");
+      try {
+        const response = await fetch("/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: subscribeEmail.trim(), name: names[0] || "" }),
+        });
+        if (response.ok) {
+          setSubscribeStatus("success");
+          ogTrack('track_event', { event_type: 'newsletter_subscribed', screen: 'subscribe' });
+          setTimeout(() => startChat(readBook), 1500);
+        } else {
+          setSubscribeStatus("error");
+        }
+      } catch (e) {
+        setSubscribeStatus("error");
+      }
+    };
+
+    return (
+      <div style={styles.container}>
+        <div style={styles.inner}>
+          {renderHeader()}
+          <div style={styles.body}>
+            <div style={styles.card}>
+              <p style={{ ...styles.text, fontSize: 16, fontWeight: 600 }}>
+                The Lovetopia Letters
+              </p>
+              <p style={{ ...styles.text, marginTop: 14 }}>
+                The app uses a framework with concepts that go deep. The Lovetopia Letters break down each part — one idea at a time, straight to your inbox.
+              </p>
+              <p style={{ ...styles.text, marginTop: 12 }}>
+                Think of it as the companion guide to what you're about to experience here. Each letter explores one concept so you can get more out of every session.
+              </p>
+
+              {subscribeStatus === "success" ? (
+                <div style={{
+                  marginTop: 22,
+                  padding: "16px 20px",
+                  background: "rgba(39,174,96,0.08)",
+                  border: "1px solid #27AE60",
+                  borderRadius: 10,
+                  textAlign: "center",
+                }}>
+                  <p style={{ fontSize: 15, color: "#27AE60", fontWeight: 600, fontFamily: "'Georgia', serif" }}>
+                    You're in. Check your inbox.
+                  </p>
+                  <p style={{ fontSize: 13, color: COLORS.textLight, marginTop: 6, fontFamily: "'Georgia', serif" }}>
+                    Loading your session…
+                  </p>
+                </div>
+              ) : (
+                <React.Fragment>
+                  <input
+                    type="email"
+                    value={subscribeEmail}
+                    onChange={(e) => setSubscribeEmail(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSubscribe(); }}
+                    placeholder="Your email"
+                    style={{ ...styles.input, marginTop: 20 }}
+                    onFocus={(e) => (e.target.style.borderColor = COLORS.gold)}
+                    onBlur={(e) => (e.target.style.borderColor = COLORS.sand)}
+                  />
+
+                  {subscribeStatus === "error" && (
+                    <p style={{ fontSize: 13, color: "#C0392B", marginTop: 8 }}>
+                      Something went wrong. Try again or skip below.
+                    </p>
+                  )}
+
+                  <HoverButton
+                    style={{
+                      ...styles.btn,
+                      marginTop: 14,
+                      background: COLORS.gold,
+                      color: COLORS.white,
+                      fontWeight: 600,
+                      textAlign: "center",
+                      opacity: subscribeEmail.trim() && subscribeStatus !== "sending" ? 1 : 0.5,
+                    }}
+                    hoverStyle={{ background: COLORS.goldLight }}
+                    onClick={handleSubscribe}
+                  >
+                    {subscribeStatus === "sending" ? "Subscribing…" : "Subscribe & start my session"}
+                  </HoverButton>
+
+                  <HoverButton
+                    style={{
+                      ...styles.btn,
+                      textAlign: "center",
+                      fontSize: 14,
+                      color: COLORS.gold,
+                      marginTop: 4,
+                    }}
+                    hoverStyle={styles.btnHover}
+                    onClick={() => {
+                      ogTrack('track_event', { event_type: 'newsletter_already_subscribed', screen: 'subscribe' });
+                      startChat(readBook);
+                    }}
+                  >
+                    I'm already subscribed
+                  </HoverButton>
+
+                  <HoverButton
+                    style={{
+                      ...styles.btn,
+                      textAlign: "center",
+                      fontSize: 14,
+                      color: COLORS.textLight,
+                      border: "none",
+                      marginTop: 0,
+                    }}
+                    hoverStyle={{ color: COLORS.gold }}
+                    onClick={() => {
+                      ogTrack('track_event', { event_type: 'newsletter_skipped', screen: 'subscribe' });
+                      startChat(readBook);
+                    }}
+                  >
+                    No thanks
+                  </HoverButton>
+                </React.Fragment>
+              )}
             </div>
           </div>
         </div>
@@ -1682,6 +1812,5 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
-
 </body>
 </html>
